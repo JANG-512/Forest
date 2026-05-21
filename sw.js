@@ -1,6 +1,9 @@
-// Forest Island — Service Worker v2
-const CACHE_NAME = 'forest-island-v2';
-const CORE_URLS = ['./', './index.html', './manifest.json', './icon.svg', './icon-maskable.svg'];
+// Forest Island — Service Worker v3
+const CACHE_NAME = 'forest-island-v3';
+const CORE_URLS = ['./','./index.html','./manifest.json','./icon.svg','./icon-maskable.svg',
+  './js/config.js','./js/game.js','./js/renderer.js','./js/world.js','./js/audio.js',
+  './js/character.js','./js/interior.js','./js/npc.js','./js/player.js','./js/ui.js',
+  './js/state.js','./js/multiplayer.js','./js/main.js'];
 const CDN_URLS = [
   'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
   'https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js',
