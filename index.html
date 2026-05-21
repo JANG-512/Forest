@@ -2,8 +2,15 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Forest Island 🌿</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#7ec8e3">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Forest Island">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="mobile-web-app-capable" content="yes">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <style>
@@ -99,12 +106,50 @@ body{overflow:hidden;background:#7ec8e3;font-family:'Segoe UI',system-ui,sans-se
 #mp-disc-btn{background:#ee6655;color:white;display:none}
 #mp-status{font-size:12px;color:#888;text-align:center;margin-top:6px;line-height:1.5}
 .mp-badge{display:inline-block;background:#7ec880;color:white;border-radius:6px;padding:1px 7px;font-size:10px;font-weight:800;margin-left:5px;vertical-align:middle}
-/* 모바일 툴바 조정 */
-@media(max-width:600px){
-  #toolbar{bottom:180px;gap:4px;padding:5px 8px}
-  .tool-btn{width:44px;height:44px;font-size:18px}
-  #itembar{bottom:134px;max-width:80vw}
+/* 달리기 버튼 */
+#mb-run{position:absolute;right:4px;top:6px;width:40px;height:40px;font-size:15px;
+  background:rgba(255,255,255,.78);color:#3b3028;border:2.5px solid rgba(255,255,255,.92);
+  border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.2);pointer-events:all;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;transition:background .15s,border-color .15s,transform .1s}
+#mb-run:active{transform:scale(.88)}
+#mb-run.run-on{background:#ffaa22;border-color:#ff8800;color:white}
+
+/* ── 세로 모드 기본 (모바일) ── */
+@media(max-width:640px){
+  #toolbar{bottom:186px;gap:3px;padding:5px 8px}
+  .tool-btn{width:44px;height:44px;font-size:17px}
+  #itembar{bottom:140px;max-width:78vw}
   #hud-top{padding:0 10px}
+  #dialogue{bottom:160px}
+  #fishing-ui{bottom:190px}
+}
+
+/* ── 가로 모드 (landscape, 높이 520px 이하) ── */
+@media(orientation:landscape) and (max-height:520px){
+  /* 툴바: 상단 중앙으로 이동, 라벨 숨김 */
+  #toolbar{top:6px;bottom:auto;padding:4px 8px;gap:3px;border-radius:16px}
+  .tool-btn{width:38px;height:38px;font-size:15px}
+  .tool-btn span{display:none}
+  /* 아이템바: 하단 중간 영역 */
+  #itembar{bottom:6px;left:160px;right:170px;transform:none;max-width:none;overflow-x:auto}
+  /* 조이스틱: 작게 */
+  #joystick-zone{width:140px;height:140px}
+  #joystick-base{left:12px;bottom:12px;width:100px;height:100px}
+  #joystick-knob{width:40px;height:40px}
+  #mb-run{right:3px;top:4px;width:36px;height:36px;font-size:13px}
+  /* 모바일 버튼: 하단 오른쪽, 작게 */
+  #mobile-btns{bottom:8px;right:10px;gap:6px}
+  .mob-btn{width:50px;height:50px;font-size:18px}
+  #mb-cam-l,#mb-cam-r{width:42px;height:42px;font-size:15px}
+  /* HUD 컴팩트 */
+  #hud-top{padding:0 8px;top:6px}
+  .hud-pill{padding:3px 10px;font-size:11px}
+  #season-banner{top:40px;right:8px;font-size:10px;padding:2px 8px}
+  #notif-area{top:42px}
+  /* 대화창, 낚시 */
+  #dialogue{bottom:70px}
+  #fishing-ui{bottom:90px}
 }
 </style>
 </head>
@@ -155,6 +200,7 @@ body{overflow:hidden;background:#7ec8e3;font-family:'Segoe UI',system-ui,sans-se
 
   <!-- 모바일 조이스틱 -->
   <div id="joystick-zone" style="touch-action:none">
+    <button id="mb-run" onclick="toggleRun()" title="달리기 (Shift)">🏃</button>
     <div id="joystick-base"><div id="joystick-knob"></div></div>
   </div>
 
@@ -846,19 +892,20 @@ function buildPlayer() {
   scene.add(playerMesh);
 }
 
-// 걷기 애니메이션 공통함수
-function animateLimbs(limbs, moving, phaseOffset=0) {
-  const t = performance.now()*0.0055 + phaseOffset;
-  const sw = moving ? 0.55 : 0;
-  const idle = !moving;
+// 걷기/달리기 애니메이션 공통함수
+function animateLimbs(limbs, moving, phaseOffset=0, running=false) {
+  const speed  = running ? 0.010 : 0.0055;
+  const swing  = moving  ? (running ? 0.78 : 0.55) : 0;
+  const armSw  = moving  ? (running ? 0.68 : 0.44) : 0;
+  const t = performance.now()*speed + phaseOffset;
   const decay = 0.82;
   if(!limbs.leftLeg) return;
   if(moving) {
-    limbs.leftLeg.rotation.x  =  Math.sin(t)*sw;
-    limbs.rightLeg.rotation.x = -Math.sin(t)*sw;
+    limbs.leftLeg.rotation.x  =  Math.sin(t)*swing;
+    limbs.rightLeg.rotation.x = -Math.sin(t)*swing;
     if(limbs.leftArm){
-      limbs.leftArm.rotation.x  = -Math.sin(t)*0.44;
-      limbs.rightArm.rotation.x =  Math.sin(t)*0.44;
+      limbs.leftArm.rotation.x  = -Math.sin(t)*armSw;
+      limbs.rightArm.rotation.x =  Math.sin(t)*armSw;
     }
   } else {
     limbs.leftLeg.rotation.x  *= decay;
@@ -1243,9 +1290,17 @@ const INTERACTABLE = new Set([T.TREE,T.ROCK,T.SHOP,T.MUSEUM,T.NOOK_HQ,
   T.PLAYER_HOUSE,T.VILLAGER_HOUSE,T.FLOWER,T.DIG_SPOT]);
 
 let moveAccum=0;
+let playerRunning=false;
+function toggleRun(){
+  playerRunning=!playerRunning;
+  const btn=document.getElementById('mb-run');
+  if(btn) btn.classList.toggle('run-on',playerRunning);
+  notify(playerRunning?'🏃 달리기 ON':'🚶 걷기 ON');
+}
 function updatePlayer(dt) {
   if(dialogueOpen) return;
-  const spd=0.045;
+  const isRunning = playerRunning || !!(keys['ShiftLeft']||keys['ShiftRight']);
+  const spd = isRunning ? 0.088 : 0.045;
   // 카메라 기준 방향 벡터
   const fw = {x:-Math.sin(camAngle), z:-Math.cos(camAngle)};
   const rt = {x: Math.cos(camAngle), z:-Math.sin(camAngle)};
@@ -1274,16 +1329,21 @@ function updatePlayer(dt) {
     }
     playerMesh.rotation.y=Math.atan2(dx,dz);
     moveAccum+=dt;
-    if(moveAccum>18){moveAccum=0;playSound('step');}
+    const stepInterval = isRunning ? 10 : 18;
+    if(moveAccum>stepInterval){moveAccum=0;playSound('step');}
   }
 
   const th=tileH(Math.round(playerPos.x/CS),Math.round(playerPos.z/CS));
   playerMesh.position.set(playerPos.x, th, playerPos.z);
-  // 걷기 bob (상체만 살짝)
-  if(playerMoving) playerMesh.position.y=th+Math.abs(Math.sin(performance.now()*0.013))*0.05;
+  // 걷기/달리기 bob
+  if(playerMoving){
+    const bobSpeed = isRunning ? 0.022 : 0.013;
+    const bobAmp   = isRunning ? 0.08  : 0.05;
+    playerMesh.position.y=th+Math.abs(Math.sin(performance.now()*bobSpeed))*bobAmp;
+  }
 
-  // 팔다리 걷기 애니메이션
-  animateLimbs(playerLimbs, playerMoving);
+  // 팔다리 애니메이션
+  animateLimbs(playerLimbs, playerMoving, 0, isRunning);
 
   updateFacingMarker();
 }
@@ -2250,6 +2310,13 @@ function boot(){
   setTimeout(()=>notify('🌍 멀티플레이: 툴바 🌍 버튼 → 섬 코드 공유!'),6000);
 
   requestAnimationFrame(gameLoop);
+
+  // ── PWA 서비스 워커 등록 ──
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('./sw.js',{scope:'./'})
+      .then(r=>console.log('[PWA] SW registered, scope:',r.scope))
+      .catch(e=>console.warn('[PWA] SW register failed:',e));
+  }
 }
 
 boot();

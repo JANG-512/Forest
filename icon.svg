@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="36" fill="#7ec8e3"/>
+  <circle cx="96" cy="96" r="72" fill="#5ab8d8"/>
+  <!-- Island ground -->
+  <ellipse cx="96" cy="132" rx="58" ry="22" fill="#e8d170"/>
+  <ellipse cx="96" cy="128" rx="58" ry="22" fill="#f0dc8a"/>
+  <!-- Grass -->
+  <ellipse cx="96" cy="122" rx="52" ry="12" fill="#7ec870"/>
+  <!-- Tree trunk -->
+  <rect x="90" y="82" width="12" height="42" rx="4" fill="#8B5E3C"/>
+  <!-- Tree top (triangle layers) -->
+  <polygon points="96,30 120,75 72,75" fill="#4a9e4a"/>
+  <polygon points="96,44 118,82 74,82" fill="#5ab85a"/>
+  <polygon points="96,56 115,86 77,86" fill="#6acc6a"/>
+  <!-- Small flowers -->
+  <circle cx="72" cy="120" r="5" fill="#ff9999"/>
+  <circle cx="118" cy="118" r="4" fill="#ffee66"/>
+  <circle cx="108" cy="124" r="3" fill="#ff88cc"/>
+</svg>
