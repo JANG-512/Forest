@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>모여봐요 동물의 섬 🌿</title>
+<title>Forest Island 🌿</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <style>
@@ -178,10 +178,10 @@ body{overflow:hidden;background:#7ec8e3;font-family:'Segoe UI',system-ui,sans-se
     </div>
   </div>
 
-  <!-- 패널: 너굴상회 -->
+  <!-- 패널: 숲속상회 -->
   <div class="panel-overlay" id="panel-shop" onclick="if(event.target===this)togglePanel('shop')">
     <div class="panel">
-      <h2>🏪 너굴상회 <button class="close-btn" onclick="togglePanel('shop')">✕</button></h2>
+      <h2>🏪 숲속상회 <button class="close-btn" onclick="togglePanel('shop')">✕</button></h2>
       <div style="display:flex;gap:8px;margin-bottom:12px">
         <button style="flex:1;padding:7px;border-radius:10px;border:none;background:#e6aa22;color:white;font-weight:800;cursor:pointer" onclick="shopTab('buy')">구매</button>
         <button style="flex:1;padding:7px;border-radius:10px;border:none;background:#7ec8e3;color:white;font-weight:800;cursor:pointer" onclick="shopTab('sell')">판매</button>
@@ -232,7 +232,7 @@ body{overflow:hidden;background:#7ec8e3;font-family:'Segoe UI',system-ui,sans-se
 
 <script>
 // ═══════════════════════════════════════════════════════════════
-// 🌿 모여봐요 동물의 섬 — 완전판
+// 🌿 Forest Island — 오픈소스 팬 제작 게임
 // ═══════════════════════════════════════════════════════════════
 
 // ─── 타일 타입 ───────────────────────────────────────────────
@@ -312,7 +312,7 @@ const VILLAGERS = [
    pos:[24,10]},
 ];
 
-// ─── 너굴 마일 업적 ────────────────────────────────────────
+// ─── 섬 마일 업적 ────────────────────────────────────────
 const MILE_ACHIEVEMENTS = [
   {id:'first_catch',  name:'첫 번째 낚시!',  emoji:'🎣', miles:500,  done:false},
   {id:'first_bug',    name:'첫 번째 채집!',  emoji:'🦋', miles:300,  done:false},
@@ -327,7 +327,7 @@ const MILE_ACHIEVEMENTS = [
 ];
 
 // ─── 게임 상태 ──────────────────────────────────────────────
-const SAVE_KEY = 'acgame_v2';
+const SAVE_KEY = 'forest_island_v1';
 let gs;
 function freshState() {
   return {
@@ -341,8 +341,8 @@ function freshState() {
     world_flowers: {},  // "x,y"→{type, watered:false}
     world_dig_spots: {},// "x,y"→{fossil:id, found:false}
     talked_to: {},
-    shop_level: 0,      // 0=너굴상회 텐트 1=가게
-    nook_debt: 98000,   // 이주 빚
+    shop_level: 0,      // 0=숲속상회 텐트 1=가게
+    nook_debt: 98000,   // 정착 비용
     day: new Date().toDateString(),
     total_fish: 0,
     total_bugs: 0,
@@ -1588,7 +1588,7 @@ function talkTo(vi){
     const rumours=[
       '아, 오늘 해변에서 이상한 물건을 봤어!',
       '마을 광장에 새 조각상이 생긴다는 소문이 있어!',
-      '너굴이 새 상품 들어온다고 하던데?',
+      '마을 상점에 새 상품 들어온다고 하던데?',
       `${VILLAGERS.find(v=>v.id!==vi.id)?.name||'옆집'}이(가) 요즘 뭔가 이상하대...`,
     ];
     showDialogue(vi.name, `${vi.emoji} ${rumours[Math.floor(Math.random()*rumours.length)]}`,
@@ -1722,7 +1722,7 @@ function donateItem(cat, id){
   playSound('donate');
 }
 
-// ─── 너굴 HQ ─────────────────────────────────────────────────
+// ─── 마을센터 ─────────────────────────────────────────────────
 function openNookHQ(){
   togglePanel('nook');
   renderNookHQ();
@@ -1730,7 +1730,7 @@ function openNookHQ(){
 function renderNookHQ(){
   const content=document.getElementById('nook-content');
   const debtStr=gs.nook_debt>0?`<div style="background:#fff3cd;border-radius:10px;padding:12px;margin-bottom:12px;font-size:13px">
-    <b>너굴:</b> 이주 빚이 🔔${gs.nook_debt.toLocaleString()} 남았어요!<br>
+    <b>🦝 이장:</b> 정착 비용이 🔔${gs.nook_debt.toLocaleString()} 남았어요!<br>
     <button style="margin-top:8px;padding:6px 14px;border:none;border-radius:8px;background:#e6aa22;color:white;font-weight:800;cursor:pointer" onclick="payDebt()">빚 갚기 (현재 종: 🔔${gs.bells.toLocaleString()})</button>
   </div>`:'<div style="background:#d4edda;border-radius:10px;padding:12px;margin-bottom:12px;font-size:13px">✅ 빚을 다 갚았어요!</div>';
 
@@ -1743,7 +1743,7 @@ function renderNookHQ(){
     </div>`;
   }).join('');
 
-  content.innerHTML=`${debtStr}<h3 style="font-size:13px;font-weight:800;color:#3b3028;margin-bottom:8px">🦋 너굴 마일 업적</h3>${miles}`;
+  content.innerHTML=`${debtStr}<h3 style="font-size:13px;font-weight:800;color:#3b3028;margin-bottom:8px">🦋 섬 마일 업적</h3>${miles}`;
 }
 
 function payDebt(){
@@ -1769,7 +1769,7 @@ function openHouseMenu(){
   const lv=gs.house_level;
   if(lv>=3){notify('🏠 더 이상 확장할 수 없어요!');return;}
   const cost=costs[lv+1]||0;
-  showDialogue('너굴',
+  showDialogue('이장',
     `🏠 집을 확장할까요? 🔔${cost.toLocaleString()} 이 필요해요.`,
     [
       {text:`확장! (🔔${cost.toLocaleString()})`, action:()=>{
@@ -1836,7 +1836,7 @@ function closeAllPanels(){
   openPanels.clear();
 }
 
-// ─── 너굴 마일 업적 ─────────────────────────────────────────
+// ─── 섬 마일 업적 ─────────────────────────────────────────
 function checkMilestone(id){
   if(gs.achievements[id]) return;
   const a=MILE_ACHIEVEMENTS.find(m=>m.id===id);
