@@ -1,0 +1,2258 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>모여봐요 동물의 섬 🌿</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{overflow:hidden;background:#7ec8e3;font-family:'Segoe UI',system-ui,sans-serif;user-select:none}
+#c3d{display:block;width:100vw;height:100vh}
+#ui{position:fixed;inset:0;pointer-events:none}
+/* HUD */
+#hud-top{position:absolute;top:10px;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;padding:0 14px;gap:8px}
+.hud-pill{background:rgba(255,255,255,0.92);border-radius:20px;padding:5px 14px;font-size:13px;font-weight:700;color:#3b3028;box-shadow:0 2px 8px rgba(0,0,0,.12);pointer-events:all}
+#bells-pill{display:flex;align-items:center;gap:5px;cursor:default}
+#time-pill{display:flex;align-items:center;gap:6px}
+/* Tool bar */
+#toolbar{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:6px;background:rgba(255,255,255,.92);border-radius:20px;padding:7px 12px;box-shadow:0 2px 12px rgba(0,0,0,.15);pointer-events:all}
+.tool-btn{width:52px;height:52px;border-radius:14px;border:none;background:rgba(255,220,180,.5);cursor:pointer;font-size:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:.15s;position:relative}
+.tool-btn.active{background:#ffcc66;box-shadow:0 0 0 3px #e6aa22}
+.tool-btn span{font-size:8px;color:#7a5c2e;font-weight:700;margin-top:1px}
+/* Item bar */
+#itembar{position:absolute;bottom:88px;left:50%;transform:translateX(-50%);display:flex;gap:4px;background:rgba(255,255,255,.88);border-radius:16px;padding:5px 10px;box-shadow:0 2px 10px rgba(0,0,0,.12);pointer-events:all;max-width:90vw;overflow-x:auto}
+.item-slot{width:46px;height:46px;border-radius:10px;border:2px solid rgba(0,0,0,.08);background:rgba(255,240,210,.6);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:20px;cursor:pointer;position:relative;flex-shrink:0}
+.item-slot .qty{position:absolute;bottom:1px;right:3px;font-size:9px;font-weight:800;color:#3b3028}
+.item-slot.selected{border-color:#e6aa22;background:rgba(255,220,100,.5)}
+/* Dialogue */
+#dialogue{position:absolute;bottom:150px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.97);border-radius:18px;padding:16px 22px;max-width:520px;width:90vw;box-shadow:0 4px 20px rgba(0,0,0,.18);pointer-events:all;display:none}
+#dialogue .npc-name{font-size:13px;font-weight:800;color:#e6aa22;margin-bottom:5px}
+#dialogue .text{font-size:14px;color:#3b3028;line-height:1.6}
+#dialogue .choices{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px}
+.choice-btn{background:#7ec8e3;border:none;border-radius:10px;padding:5px 13px;font-size:12px;font-weight:700;color:white;cursor:pointer;transition:.12s}
+.choice-btn:hover{background:#5ab8d8}
+/* Panel */
+.panel-overlay{position:absolute;inset:0;background:rgba(0,0,0,.35);pointer-events:all;display:none;align-items:center;justify-content:center}
+.panel-overlay.show{display:flex}
+.panel{background:#fffcf0;border-radius:22px;padding:20px;max-width:420px;width:92vw;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.22)}
+.panel h2{font-size:16px;font-weight:800;color:#3b3028;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.close-btn{margin-left:auto;background:rgba(0,0,0,.08);border:none;border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:14px}
+/* Inventory grid */
+#inv-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.inv-item{background:rgba(255,220,150,.35);border-radius:10px;padding:8px 4px;text-align:center;font-size:22px;cursor:pointer;border:2px solid transparent;transition:.12s}
+.inv-item:hover{border-color:#e6aa22;background:rgba(255,200,80,.3)}
+.inv-item .iname{font-size:9px;color:#7a5c2e;font-weight:700;margin-top:2px}
+.inv-item .iprice{font-size:8px;color:#aaa;margin-top:1px}
+/* Shop list */
+.shop-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:12px;cursor:pointer;transition:.12s;border:1px solid transparent}
+.shop-item:hover{background:rgba(255,200,80,.25);border-color:#e6aa22}
+.shop-item .sname{font-size:13px;font-weight:700;color:#3b3028;flex:1}
+.shop-item .sprice{font-size:12px;color:#7a5c2e;font-weight:800}
+/* Museum grid */
+.museum-section{margin-bottom:14px}
+.museum-section h3{font-size:12px;color:#7a5c2e;font-weight:800;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.museum-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
+.mslot{width:38px;height:38px;border-radius:8px;background:rgba(0,0,0,.06);display:flex;align-items:center;justify-content:center;font-size:18px;border:2px solid transparent}
+.mslot.donated{border-color:#7ec880;background:rgba(126,200,128,.2)}
+.mslot.empty{filter:grayscale(1) opacity(.3)}
+/* Notification */
+#notif-area{position:absolute;top:56px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:4px;align-items:center;pointer-events:none}
+.notif{background:rgba(255,255,255,.95);border-radius:12px;padding:6px 16px;font-size:13px;font-weight:700;color:#3b3028;box-shadow:0 2px 10px rgba(0,0,0,.15);animation:notifAnim 3s ease forwards;white-space:nowrap}
+@keyframes notifAnim{0%{opacity:0;transform:translateY(8px)}10%{opacity:1;transform:translateY(0)}80%{opacity:1}100%{opacity:0;transform:translateY(-8px)}}
+/* Fishing UI */
+#fishing-ui{position:absolute;bottom:170px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.95);border-radius:16px;padding:12px 24px;text-align:center;display:none;pointer-events:none}
+#fishing-ui .fish-hint{font-size:13px;color:#3b3028;font-weight:700}
+#catch-bar{width:200px;height:14px;background:rgba(0,0,0,.1);border-radius:7px;margin:8px auto 0;overflow:hidden;display:none}
+#catch-fill{height:100%;background:linear-gradient(90deg,#7ec880,#3a9e5f);border-radius:7px;width:0%;transition:.1s}
+/* Season banner */
+#season-banner{position:absolute;top:56px;right:14px;background:rgba(255,255,255,.88);border-radius:12px;padding:4px 11px;font-size:11px;font-weight:700;color:#3b3028;display:flex;align-items:center;gap:5px}
+/* Miles */
+#miles-pill{background:rgba(255,200,80,.9);border-radius:20px;padding:5px 14px;font-size:13px;font-weight:700;color:#3b3028;display:flex;align-items:center;gap:4px}
+/* Scrollbar */
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:rgba(0,0,0,.2);border-radius:2px}
+
+/* ── 모바일 조이스틱 ── */
+#joystick-zone{position:absolute;left:0;bottom:0;width:170px;height:170px;pointer-events:all;display:none;touch-action:none}
+#joystick-base{position:absolute;left:22px;bottom:22px;width:118px;height:118px;border-radius:50%;background:rgba(255,255,255,.16);border:2.5px solid rgba(255,255,255,.38);box-shadow:0 2px 16px rgba(0,0,0,.15)}
+#joystick-knob{position:absolute;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.75);border:2.5px solid rgba(255,255,255,.95);box-shadow:0 2px 10px rgba(0,0,0,.22);top:50%;left:50%;transform:translate(-50%,-50%)}
+/* 모바일 액션 버튼 */
+#mobile-btns{position:absolute;right:14px;bottom:16px;display:none;flex-direction:column;gap:9px;align-items:center;pointer-events:all}
+.mob-btn{width:60px;height:60px;border-radius:50%;border:none;font-size:22px;font-weight:900;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,.22);display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;touch-action:manipulation;transition:transform .1s}
+.mob-btn:active{transform:scale(.88)}
+#mb-interact{background:#ffcc44;color:#3b3028;font-size:20px}
+#mb-cam-wrap{display:flex;gap:9px}
+#mb-cam-l,#mb-cam-r{width:50px;height:50px;background:rgba(255,255,255,.88);color:#3b3028;font-size:18px}
+#mb-inv{background:#7ec880;color:white;font-size:24px}
+#mb-map{background:#5ba3e0;color:white;font-size:22px}
+/* 멀티플레이 패널 */
+#mp-code-display{background:#f5f0e8;border-radius:12px;padding:10px 14px;font-family:monospace;font-size:12px;word-break:break-all;color:#3b3028;border:2px dashed #e6aa22;margin-bottom:8px;user-select:all;cursor:copy;letter-spacing:.5px}
+.mp-section{margin-bottom:14px}
+.mp-section h3{font-size:11px;color:#7a5c2e;font-weight:800;margin-bottom:7px;text-transform:uppercase;letter-spacing:.6px}
+#mp-join-input{width:100%;padding:9px 12px;border-radius:10px;border:2px solid rgba(0,0,0,.1);font-size:12px;margin-bottom:7px;font-family:monospace;outline:none}
+#mp-join-input:focus{border-color:#e6aa22}
+.mp-btn{width:100%;padding:10px;border-radius:12px;border:none;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:5px;transition:.12s}
+.mp-btn:hover{filter:brightness(1.07)}
+#mp-copy-btn{background:#e6aa22;color:white}
+#mp-join-btn{background:#5ba3e0;color:white}
+#mp-disc-btn{background:#ee6655;color:white;display:none}
+#mp-status{font-size:12px;color:#888;text-align:center;margin-top:6px;line-height:1.5}
+.mp-badge{display:inline-block;background:#7ec880;color:white;border-radius:6px;padding:1px 7px;font-size:10px;font-weight:800;margin-left:5px;vertical-align:middle}
+/* 모바일 툴바 조정 */
+@media(max-width:600px){
+  #toolbar{bottom:180px;gap:4px;padding:5px 8px}
+  .tool-btn{width:44px;height:44px;font-size:18px}
+  #itembar{bottom:134px;max-width:80vw}
+  #hud-top{padding:0 10px}
+}
+</style>
+</head>
+<body>
+<canvas id="c3d"></canvas>
+<div id="ui">
+  <!-- 상단 HUD -->
+  <div id="hud-top">
+    <div class="hud-pill" id="bells-pill">🔔 <span id="bells-val">1000</span></div>
+    <div class="hud-pill" id="time-pill">
+      <span id="time-icon">☀️</span>
+      <span id="time-val">--:--</span>
+      <span id="date-val" style="font-size:10px;opacity:.7"></span>
+    </div>
+    <div class="hud-pill" id="miles-pill">🦋 <span id="miles-val">0</span> 마일</div>
+  </div>
+  <div id="season-banner"><span id="season-icon">🌸</span><span id="season-name">봄</span></div>
+
+  <!-- 도구 바 -->
+  <div id="toolbar">
+    <button class="tool-btn active" data-tool="net" onclick="selectTool('net')">🦋<span>채충망</span></button>
+    <button class="tool-btn" data-tool="rod" onclick="selectTool('rod')">🎣<span>낚싯대</span></button>
+    <button class="tool-btn" data-tool="shovel" onclick="selectTool('shovel')">⛏️<span>삽</span></button>
+    <button class="tool-btn" data-tool="axe" onclick="selectTool('axe')">🪓<span>도끼</span></button>
+    <button class="tool-btn" data-tool="watering" onclick="selectTool('watering')">🌿<span>물뿌리개</span></button>
+    <button class="tool-btn" data-tool="bag" onclick="togglePanel('inv')">🎒<span>가방</span></button>
+    <button class="tool-btn" data-tool="mp" onclick="togglePanel('mp')">🌍<span>멀티</span></button>
+  </div>
+
+  <!-- 아이템 바 (인벤토리 요약) -->
+  <div id="itembar"></div>
+
+  <!-- 대화 -->
+  <div id="dialogue">
+    <div class="npc-name" id="dlg-name"></div>
+    <div class="text" id="dlg-text"></div>
+    <div class="choices" id="dlg-choices"></div>
+  </div>
+
+  <!-- 낚시 UI -->
+  <div id="fishing-ui">
+    <div class="fish-hint" id="fish-hint">물가에 서서 🎣 낚싯대를 사용하세요</div>
+    <div id="catch-bar"><div id="catch-fill"></div></div>
+  </div>
+
+  <!-- 알림 -->
+  <div id="notif-area"></div>
+
+  <!-- 모바일 조이스틱 -->
+  <div id="joystick-zone" style="touch-action:none">
+    <div id="joystick-base"><div id="joystick-knob"></div></div>
+  </div>
+
+  <!-- 모바일 액션 버튼 -->
+  <div id="mobile-btns">
+    <button class="mob-btn" id="mb-interact" onclick="if(!dialogueOpen)tryInteract()">E</button>
+    <div id="mb-cam-wrap">
+      <button class="mob-btn" id="mb-cam-l" onclick="rotateCam(-1)">◀</button>
+      <button class="mob-btn" id="mb-cam-r" onclick="rotateCam(1)">▶</button>
+    </div>
+    <button class="mob-btn" id="mb-inv" onclick="togglePanel('inv')">🎒</button>
+    <button class="mob-btn" id="mb-map" onclick="togglePanel('mp')">🌍</button>
+  </div>
+
+  <!-- 패널: 인벤토리 -->
+  <div class="panel-overlay" id="panel-inv" onclick="if(event.target===this)togglePanel('inv')">
+    <div class="panel">
+      <h2>🎒 인벤토리 <button class="close-btn" onclick="togglePanel('inv')">✕</button></h2>
+      <div style="font-size:12px;color:#aaa;margin-bottom:10px">소지 종 🔔 <b id="inv-bells"></b> | 마일 🦋 <b id="inv-miles"></b></div>
+      <div id="inv-grid"></div>
+    </div>
+  </div>
+
+  <!-- 패널: 너굴상회 -->
+  <div class="panel-overlay" id="panel-shop" onclick="if(event.target===this)togglePanel('shop')">
+    <div class="panel">
+      <h2>🏪 너굴상회 <button class="close-btn" onclick="togglePanel('shop')">✕</button></h2>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button style="flex:1;padding:7px;border-radius:10px;border:none;background:#e6aa22;color:white;font-weight:800;cursor:pointer" onclick="shopTab('buy')">구매</button>
+        <button style="flex:1;padding:7px;border-radius:10px;border:none;background:#7ec8e3;color:white;font-weight:800;cursor:pointer" onclick="shopTab('sell')">판매</button>
+      </div>
+      <div id="shop-content"></div>
+    </div>
+  </div>
+
+  <!-- 패널: 박물관 -->
+  <div class="panel-overlay" id="panel-museum" onclick="if(event.target===this)togglePanel('museum')">
+    <div class="panel">
+      <h2>🦉 박물관 <button class="close-btn" onclick="togglePanel('museum')">✕</button></h2>
+      <div id="museum-content"></div>
+    </div>
+  </div>
+
+  <!-- 패널: 주민 서비스 -->
+  <div class="panel-overlay" id="panel-nook" onclick="if(event.target===this)togglePanel('nook')">
+    <div class="panel">
+      <h2>🦝 주민 서비스 <button class="close-btn" onclick="togglePanel('nook')">✕</button></h2>
+      <div id="nook-content"></div>
+    </div>
+  </div>
+
+  <!-- 패널: 멀티플레이 -->
+  <div class="panel-overlay" id="panel-mp" onclick="if(event.target===this)togglePanel('mp')">
+    <div class="panel">
+      <h2>🌍 멀티플레이 <button class="close-btn" onclick="togglePanel('mp')">✕</button></h2>
+      <div class="mp-section">
+        <h3>🏝️ 나의 섬 코드</h3>
+        <div id="mp-code-display">연결 초기화 중...</div>
+        <button class="mp-btn" id="mp-copy-btn" onclick="copyIslandCode()">📋 코드 복사하기</button>
+      </div>
+      <div class="mp-section">
+        <h3>✈️ 친구 섬 방문</h3>
+        <input id="mp-join-input" type="text" placeholder="친구의 섬 코드 입력..." maxlength="64" autocomplete="off" autocorrect="off" spellcheck="false">
+        <button class="mp-btn" id="mp-join-btn" onclick="joinFriendIsland()">🚀 방문하기</button>
+        <button class="mp-btn" id="mp-disc-btn" onclick="disconnectMP()">👋 섬 떠나기</button>
+      </div>
+      <div id="mp-status">PeerJS 서버 연결 중...</div>
+      <div style="margin-top:10px;padding:10px;background:rgba(0,0,0,.04);border-radius:10px;font-size:11px;color:#999;line-height:1.6">
+        💡 같은 기기에서 탭을 두 개 열어도 테스트 가능해요!<br>
+        🏝️ 방문하면 친구의 섬이 나타나고 서로 캐릭터가 보여요.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// 🌿 모여봐요 동물의 섬 — 완전판
+// ═══════════════════════════════════════════════════════════════
+
+// ─── 타일 타입 ───────────────────────────────────────────────
+const T = Object.freeze({
+  OCEAN:0, BEACH:1, GRASS:2, RIVER:3, CLIFF:4,
+  FLOWER:5, TREE:6, ROCK:7, SHOP:8, MUSEUM:9,
+  NOOK_HQ:10, PLAYER_HOUSE:11, VILLAGER_HOUSE:12,
+  DIG_SPOT:13, PATH:14, WATERFALL:15, BRIDGE:16,
+});
+const WW=48, WH=48, CS=1.8;
+
+// ─── 아이템 데이터베이스 ─────────────────────────────────────
+const ITEMS = {
+  // 과일
+  apple:     {name:'사과',        emoji:'🍎', cat:'fruit',  price:400,  sell:200},
+  pear:      {name:'서양배',      emoji:'🍐', cat:'fruit',  price:400,  sell:200},
+  orange:    {name:'오렌지',      emoji:'🍊', cat:'fruit',  price:400,  sell:200},
+  cherry:    {name:'체리',        emoji:'🍒', cat:'fruit',  price:400,  sell:200},
+  coconut:   {name:'코코넛',      emoji:'🥥', cat:'fruit',  price:600,  sell:300},
+  // 물고기
+  sea_bass:  {name:'농어',        emoji:'🐟', cat:'fish',   price:600,  sell:400,   rarity:0.45},
+  dace:      {name:'강피라미',    emoji:'🐠', cat:'fish',   price:400,  sell:240,   rarity:0.40},
+  carp:      {name:'잉어',        emoji:'🐡', cat:'fish',   price:800,  sell:300,   rarity:0.35},
+  crucian:   {name:'붕어',        emoji:'🎣', cat:'fish',   price:500,  sell:160,   rarity:0.30},
+  goldfish:  {name:'금붕어',      emoji:'🐠', cat:'fish',   price:1300, sell:1300,  rarity:0.15},
+  pale_chub: {name:'납지리',      emoji:'🐟', cat:'fish',   price:400,  sell:200,   rarity:0.35},
+  oarfish:   {name:'산갈치',      emoji:'🐋', cat:'fish',   price:9000, sell:9000,  rarity:0.02},
+  tuna:      {name:'참다랑어',    emoji:'🐟', cat:'fish',   price:7000, sell:7000,  rarity:0.03},
+  shark:     {name:'상어',        emoji:'🦈', cat:'fish',   price:8000, sell:8000,  rarity:0.02},
+  frog2:     {name:'개구리',      emoji:'🐸', cat:'fish',   price:400,  sell:120,   rarity:0.20},
+  // 벌레
+  common_butterfly:{name:'흰나비',      emoji:'🦋', cat:'bug', price:160, sell:160, rarity:0.50},
+  yellow_butterfly:{name:'노랑나비',    emoji:'🦋', cat:'bug', price:200, sell:200, rarity:0.40},
+  tiger_butterfly: {name:'호랑나비',    emoji:'🦋', cat:'bug', price:240, sell:240, rarity:0.30},
+  beetle:    {name:'장수풍뎅이',  emoji:'🪲', cat:'bug',   price:1350, sell:1350, rarity:0.10},
+  firefly:   {name:'반딧불이',    emoji:'✨', cat:'bug',   price:300,  sell:300,  rarity:0.20},
+  cicada:    {name:'말매미',      emoji:'🦗', cat:'bug',   price:200,  sell:200,  rarity:0.35},
+  cricket:   {name:'귀뚜라미',    emoji:'🦗', cat:'bug',   price:130,  sell:130,  rarity:0.40},
+  tarantula: {name:'타란툴라',    emoji:'🕷️', cat:'bug',  price:8000, sell:8000, rarity:0.01},
+  // 화석
+  fossil_a:  {name:'공룡두개골',  emoji:'💀', cat:'fossil', price:0, sell:5000},
+  fossil_b:  {name:'공룡앞발',    emoji:'🦴', cat:'fossil', price:0, sell:4500},
+  fossil_c:  {name:'공룡뒷발',    emoji:'🦕', cat:'fossil', price:0, sell:4000},
+  fossil_d:  {name:'암모나이트',  emoji:'🐚', cat:'fossil', price:0, sell:1100},
+  fossil_e:  {name:'삼엽충',      emoji:'🦂', cat:'fossil', price:0, sell:1300},
+  // 재료
+  wood:      {name:'나무',        emoji:'🪵', cat:'material', price:100, sell:60},
+  stone:     {name:'돌',          emoji:'🪨', cat:'material', price:0,   sell:0},
+  iron:      {name:'쇠덩이',      emoji:'⚙️', cat:'material', price:0,  sell:0},
+  // 가구/씨앗
+  seed_flower:{name:'꽃씨',       emoji:'🌱', cat:'seed',   price:80,  sell:10},
+  seed_tree:  {name:'묘목',       emoji:'🌿', cat:'seed',   price:300, sell:10},
+  furniture1: {name:'나무의자',   emoji:'🪑', cat:'furniture', price:800, sell:400},
+  furniture2: {name:'꽃화분',     emoji:'🪴', cat:'furniture', price:600, sell:300},
+  furniture3: {name:'낚시의자',   emoji:'⛺', cat:'furniture', price:1200,sell:600},
+  medicine:   {name:'약',         emoji:'💊', cat:'tool',   price:400, sell:0},
+  shovel_item:{name:'삽',         emoji:'⛏️', cat:'tool',  price:2500, sell:0},
+  axe_item:   {name:'도끼',       emoji:'🪓', cat:'tool',   price:2500, sell:0},
+  rod_item:   {name:'낚싯대',     emoji:'🎣', cat:'tool',   price:2500, sell:0},
+  net_item:   {name:'채충망',     emoji:'🦋', cat:'tool',   price:2500, sell:0},
+};
+const FISH_POOL  = Object.keys(ITEMS).filter(k=>ITEMS[k].cat==='fish');
+const BUG_POOL   = Object.keys(ITEMS).filter(k=>ITEMS[k].cat==='bug');
+const FOSSIL_POOL= Object.keys(ITEMS).filter(k=>ITEMS[k].cat==='fossil');
+const FRUIT_POOL = ['apple','pear','orange','cherry'];
+
+// ─── 주민 데이터 ────────────────────────────────────────────
+const VILLAGERS = [
+  {id:'lily',  name:'릴리',  type:'frog',   emoji:'🐸', color:0x7ec880,
+   dialogues:['냠냠! 오늘은 뭘 먹을까요?','개구리도 꿈을 꾼답니다!','리빗~ 오늘도 좋은 날이에요!'],
+   pos:[20,14]},
+  {id:'teddy', name:'테디',  type:'bear',   emoji:'🐻', color:0xa08060,
+   dialogues:['으르렁! 운동은 했나요?','꿀은 역시 달콤하죠~','나랑 산책할래요?'],
+   pos:[28,14]},
+  {id:'fluff', name:'플러프', type:'bunny', emoji:'🐰', color:0xf0d0d0,
+   dialogues:['당근 드실래요?','폴짝폴짝~ 기분이 최고예요!','오늘 날씨 참 좋네요!'],
+   pos:[24,10]},
+];
+
+// ─── 너굴 마일 업적 ────────────────────────────────────────
+const MILE_ACHIEVEMENTS = [
+  {id:'first_catch',  name:'첫 번째 낚시!',  emoji:'🎣', miles:500,  done:false},
+  {id:'first_bug',    name:'첫 번째 채집!',  emoji:'🦋', miles:300,  done:false},
+  {id:'first_sell',   name:'첫 번째 판매!',  emoji:'💰', miles:200,  done:false},
+  {id:'first_fossil', name:'첫 번째 화석!',  emoji:'💀', miles:400,  done:false},
+  {id:'donate_fish',  name:'물고기 기증!',   emoji:'🐟', miles:500,  done:false},
+  {id:'donate_bug',   name:'벌레 기증!',     emoji:'🦋', miles:500,  done:false},
+  {id:'donate_fossil',name:'화석 기증!',     emoji:'🦕', miles:500,  done:false},
+  {id:'bells_10k',    name:'종 10000개!',    emoji:'🔔', miles:800,  done:false},
+  {id:'talk_all',     name:'주민 모두 대화!', emoji:'🗣️',miles:300, done:false},
+  {id:'water_flower', name:'꽃에 물주기!',   emoji:'🌸', miles:200,  done:false},
+];
+
+// ─── 게임 상태 ──────────────────────────────────────────────
+const SAVE_KEY = 'acgame_v2';
+let gs;
+function freshState() {
+  return {
+    bells: 1000,
+    miles: 0,
+    inventory: {apple:3, wood:2},
+    museum: {fish:{}, bug:{}, fossil:{}},
+    house_level: 0,  // 0=텐트 1=집 2=증축 3=2층
+    milestones: {},
+    world_trees: {},    // "x,y"→{fruit:'apple', grown:0, lastShake:0}
+    world_flowers: {},  // "x,y"→{type, watered:false}
+    world_dig_spots: {},// "x,y"→{fossil:id, found:false}
+    talked_to: {},
+    shop_level: 0,      // 0=너굴상회 텐트 1=가게
+    nook_debt: 98000,   // 이주 빚
+    day: new Date().toDateString(),
+    total_fish: 0,
+    total_bugs: 0,
+    total_fossils: 0,
+    total_sold: 0,
+    achievements: {},
+  };
+}
+function loadState() {
+  try { const s=JSON.parse(localStorage.getItem(SAVE_KEY)); if(s&&s.bells!==undefined)return s; } catch(e){}
+  return freshState();
+}
+function saveState() { localStorage.setItem(SAVE_KEY, JSON.stringify(gs)); }
+
+// ─── Three.js 초기화 ─────────────────────────────────────────
+const canvas3d = document.getElementById('c3d');
+const renderer = new THREE.WebGLRenderer({canvas:canvas3d, antialias:true});
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth, innerHeight);
+window.addEventListener('resize', ()=>{
+  renderer.setSize(innerWidth,innerHeight);
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+});
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(42, innerWidth/innerHeight, 0.5, 400);
+
+// ─── 조명 ───────────────────────────────────────────────────
+const ambLight = new THREE.AmbientLight(0xfff4e8, 0.55);
+scene.add(ambLight);
+const sunLight  = new THREE.DirectionalLight(0xfff0d0, 1.0);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.set(2048,2048);
+sunLight.shadow.camera.left=-80; sunLight.shadow.camera.right=80;
+sunLight.shadow.camera.top=80;   sunLight.shadow.camera.bottom=-80;
+sunLight.shadow.camera.far=200;  sunLight.shadow.bias=-0.0005;
+scene.add(sunLight); scene.add(sunLight.target);
+const moonLight = new THREE.DirectionalLight(0x8090c0, 0.0);
+moonLight.position.set(-30,50,-30); scene.add(moonLight);
+
+// ─── 지형 세계 데이터 ────────────────────────────────────────
+const world = new Uint8Array(WW*WH);
+const ISLAND_CX=WW/2, ISLAND_CY=WH/2;
+
+function wIdx(x,y){return y*WW+x;}
+function setTile(x,y,t){if(x>=0&&x<WW&&y>=0&&y<WH)world[wIdx(x,y)]=t;}
+function getTile(x,y){if(x<0||x>=WW||y<0||y>=WH)return T.OCEAN;return world[wIdx(x,y)];}
+
+function generateWorld() {
+  // 기본: 바다
+  world.fill(T.OCEAN);
+  // 섬 모양 (타원형)
+  for(let y=0;y<WH;y++) for(let x=0;x<WW;x++){
+    const dx=(x-ISLAND_CX)/(WW*0.44), dy=(y-ISLAND_CY)/(WH*0.42);
+    const n=Math.sin(x*0.4+y*0.3)*0.06+Math.cos(x*0.25-y*0.5)*0.06;
+    if(dx*dx+dy*dy<1+n) setTile(x,y,T.BEACH);
+  }
+  // 내부 잔디
+  for(let y=0;y<WH;y++) for(let x=0;x<WW;x++){
+    if(getTile(x,y)!==T.BEACH) continue;
+    const dx=(x-ISLAND_CX)/(WW*0.42), dy=(y-ISLAND_CY)/(WH*0.40);
+    const n=Math.sin(x*0.5+y*0.4)*0.04;
+    if(dx*dx+dy*dy<0.7+n) setTile(x,y,T.GRASS);
+  }
+  // 절벽 (북쪽)
+  for(let y=5;y<16;y++) for(let x=10;x<38;x++)
+    if(getTile(x,y)===T.GRASS) setTile(x,y,T.CLIFF);
+  // 강 (절벽 아래에서 남쪽으로)
+  for(let y=16;y<36;y++){setTile(23,y,T.RIVER);setTile(24,y,T.RIVER);}
+  // 폭포 (절벽 경계)
+  setTile(23,15,T.WATERFALL); setTile(24,15,T.WATERFALL);
+  // 다리
+  setTile(23,24,T.BRIDGE); setTile(24,24,T.BRIDGE);
+  // 건물 배치
+  setTile(22,7,T.MUSEUM);  setTile(23,7,T.MUSEUM);
+  setTile(28,7,T.SHOP);    setTile(29,7,T.SHOP);
+  setTile(19,7,T.NOOK_HQ); setTile(20,7,T.NOOK_HQ);
+  setTile(28,34,T.PLAYER_HOUSE);
+  VILLAGERS.forEach(v=>{ setTile(v.pos[0],v.pos[1],T.VILLAGER_HOUSE); });
+  // 길
+  for(let x=14;x<34;x++) if(getTile(x,8)===T.CLIFF) setTile(x,8,T.PATH);
+  for(let y=17;y<36;y++){ if(getTile(22,y)===T.GRASS) setTile(22,y,T.PATH);
+                            if(getTile(25,y)===T.GRASS) setTile(25,y,T.PATH); }
+  // 나무 랜덤 배치
+  const treeSeeds=[[12,20],[15,18],[17,22],[30,20],[33,18],[35,22],
+                    [12,28],[15,26],[30,28],[33,26],[12,8],[16,8],[32,8],[36,8],
+                    [13,11],[17,12],[31,11],[35,12]];
+  treeSeeds.forEach(([tx,ty])=>{
+    if(getTile(tx,ty)===T.GRASS||getTile(tx,ty)===T.CLIFF){
+      setTile(tx,ty,T.TREE);
+      const fr=FRUIT_POOL[Math.floor(Math.random()*FRUIT_POOL.length)];
+      gs.world_trees[`${tx},${ty}`]={fruit:fr, grown:2, lastShake:0, shakeCount:0};
+    }
+  });
+  // 꽃
+  const flowerSpots=[[14,20],[16,21],[31,20],[33,21],[14,28],[33,28],
+                      [20,18],[28,18],[20,26],[28,26],[18,10],[30,10]];
+  flowerSpots.forEach(([fx,fy])=>{
+    if(getTile(fx,fy)===T.GRASS||getTile(fx,fy)===T.CLIFF){
+      setTile(fx,fy,T.FLOWER);
+      const fc=['🌸','🌼','🌺','🌻','💐'][Math.floor(Math.random()*5)];
+      gs.world_flowers[`${fx},${fy}`]={type:fc, watered:false};
+    }
+  });
+  // 발굴 지점
+  const digSpots=[[15,22],[31,23],[17,30],[29,30],[20,12],[28,13]];
+  digSpots.forEach(([dx2,dy2])=>{
+    if(getTile(dx2,dy2)===T.GRASS||getTile(dx2,dy2)===T.CLIFF){
+      const foss=FOSSIL_POOL[Math.floor(Math.random()*FOSSIL_POOL.length)];
+      gs.world_dig_spots[`${dx2},${dy2}`]={fossil:foss, found:false};
+    }
+  });
+  // 돌
+  [[19,22],[26,21],[18,28],[32,27],[21,11],[27,12]].forEach(([rx,ry])=>{
+    if(getTile(rx,ry)===T.GRASS||getTile(rx,ry)===T.CLIFF) setTile(rx,ry,T.ROCK);
+  });
+}
+
+// ─── 3D 씬 빌더 ─────────────────────────────────────────────
+const tileMeshes = new Map();
+
+function col(hex){return new THREE.Color(hex);}
+function mat(hex, rough=0.9, metal=0, trans=false, op=1){
+  return new THREE.MeshLambertMaterial({color:hex,transparent:trans,opacity:op});
+}
+function mesh(geo,hex,shadow=true){
+  const m=new THREE.Mesh(geo,mat(hex));
+  if(shadow){m.castShadow=true;m.receiveShadow=true;}
+  return m;
+}
+
+// 타일 색상
+const TILE_COLORS = {
+  [T.OCEAN]:  0x4a9ece,
+  [T.BEACH]:  0xdec888,
+  [T.GRASS]:  0x68b84a,
+  [T.CLIFF]:  0x52963a,
+  [T.RIVER]:  0x4a9ece,
+  [T.PATH]:   0xc8b880,
+  [T.BRIDGE]: 0xa08050,
+  [T.FLOWER]: 0x72bb53,
+  [T.TREE]:   0x72bb53,
+  [T.ROCK]:   0x72bb53,
+  [T.WATERFALL]:0x5aaedc,
+  [T.DIG_SPOT]: 0x72bb53,
+  [T.SHOP]:   0x72bb53,
+  [T.MUSEUM]: 0x72bb53,
+  [T.NOOK_HQ]:0x72bb53,
+  [T.PLAYER_HOUSE]:0x72bb53,
+  [T.VILLAGER_HOUSE]:0x72bb53,
+};
+const TILE_HEIGHT = {
+  [T.OCEAN]:-0.3, [T.BEACH]:0.02, [T.GRASS]:0.08,
+  [T.CLIFF]:0.8, [T.PATH]:0.10, [T.BRIDGE]:0.10,
+  [T.RIVER]:-0.1, [T.WATERFALL]:0.4, [T.FLOWER]:0.08,
+  [T.TREE]:0.08, [T.ROCK]:0.08, [T.DIG_SPOT]:0.08,
+  [T.SHOP]:0.08, [T.MUSEUM]:0.08, [T.NOOK_HQ]:0.08,
+  [T.PLAYER_HOUSE]:0.08, [T.VILLAGER_HOUSE]:0.08,
+};
+
+// 지면 생성
+function buildGround() {
+  for(let y=0;y<WH;y++) for(let x=0;x<WW;x++) refreshTile(x,y);
+}
+
+function disposeMesh(obj){
+  if(!obj) return;
+  obj.traverse(c=>{if(c.isMesh){c.geometry?.dispose();c.material?.dispose();}});
+}
+
+function refreshTile(x, y) {
+  const key=`${x},${y}`;
+  const old=tileMeshes.get(key);
+  if(old){scene.remove(old);disposeMesh(old);tileMeshes.delete(key);}
+  const t=getTile(x,y);
+  const h=TILE_HEIGHT[t]??0.08;
+  const g=new THREE.Group();
+  g.position.set(x*CS, 0, y*CS);
+
+  // 지면 타일
+  const baseH = 0.22;
+  const box=mesh(new THREE.BoxGeometry(CS,baseH,CS), TILE_COLORS[t]??0x72bb53);
+  box.position.y = h - baseH/2;
+  box.receiveShadow=true; box.castShadow=false;
+  g.add(box);
+
+  // 타일별 3D 오브젝트 추가
+  addTileDecor(g, t, x, y, h);
+
+  scene.add(g);
+  tileMeshes.set(key, g);
+}
+
+function rng(seed, n){return((seed*9301+49297*n)%233280)/233280;}
+
+function addTileDecor(g, t, x, y, h) {
+  const s = x*1000+y;
+  switch(t) {
+    case T.OCEAN: {
+      // 가끔 파도 반짝임
+      const wp=new THREE.Mesh(new THREE.PlaneGeometry(CS,CS),
+        new THREE.MeshLambertMaterial({color:0x7bd4f0,transparent:true,opacity:0.45}));
+      wp.rotation.x=-Math.PI/2; wp.position.y=h+0.05;
+      g.add(wp); break;
+    }
+    case T.RIVER: case T.WATERFALL: {
+      const rp=new THREE.Mesh(new THREE.PlaneGeometry(CS,CS),
+        new THREE.MeshLambertMaterial({color:0x6ec4e8,transparent:true,opacity:0.75}));
+      rp.rotation.x=-Math.PI/2; rp.position.y=h+0.04;
+      g.add(rp);
+      if(t===T.WATERFALL){
+        const wf=mesh(new THREE.BoxGeometry(CS*0.6,0.9,0.15),0x90d8f0);
+        wf.position.set(0,h+0.45,-CS/2+0.1); wf.material.transparent=true;wf.material.opacity=0.7;
+        g.add(wf);
+      }
+      break;
+    }
+    case T.BRIDGE: {
+      const plank=mesh(new THREE.BoxGeometry(CS,0.08,CS),0xb09060);
+      plank.position.y=h+0.04; g.add(plank);
+      [-0.45,0.45].forEach(bx=>{
+        const rail=mesh(new THREE.BoxGeometry(0.08,0.25,CS),0xc0a870);
+        rail.position.set(bx*CS,h+0.15,0); g.add(rail);
+      }); break;
+    }
+    case T.BEACH: {
+      if(rng(s,1)<0.12){
+        const shell=mesh(new THREE.SphereGeometry(0.12,6,4),0xf0e0b8);
+        shell.scale.y=0.5;
+        shell.position.set((rng(s,2)-.5)*CS*.7, h+0.06, (rng(s,3)-.5)*CS*.7);
+        g.add(shell);
+      } break;
+    }
+    case T.CLIFF: {
+      // 절벽 엣지
+      const edge=mesh(new THREE.BoxGeometry(CS,0.5,0.18),0x4a8a32);
+      edge.position.set(0,h-0.1,CS/2-0.05); g.add(edge); break;
+    }
+    case T.GRASS: {
+      if(rng(s,5)<0.18){
+        for(let i=0;i<3;i++){
+          const blade=mesh(new THREE.CylinderGeometry(0.02,0.04,0.18+rng(s,i+10)*0.1,4),0x5caa38,false);
+          blade.position.set((rng(s,i+20)-.5)*CS*.7, h+0.09, (rng(s,i+30)-.5)*CS*.7);
+          blade.rotation.y=rng(s,i+40)*Math.PI*2;
+          g.add(blade);
+        }
+      } break;
+    }
+    case T.PATH: {
+      const path=new THREE.Mesh(new THREE.PlaneGeometry(CS,CS),
+        new THREE.MeshLambertMaterial({color:0xd4c890}));
+      path.rotation.x=-Math.PI/2; path.position.y=h+0.01;
+      g.add(path); break;
+    }
+    case T.FLOWER: {
+      const fd=gs.world_flowers[`${x},${y}`]||{type:'🌸',watered:false};
+      // 꽃 3D: 줄기 + 꽃잎
+      const stem=mesh(new THREE.CylinderGeometry(0.04,0.05,0.4,5),0x5caa38,false);
+      stem.position.y=h+0.2; g.add(stem);
+      const FLOWER_COLS=[0xff88cc,0xffdd00,0xff4488,0xffcc00,0xff66aa];
+      const fidx=['🌸','🌼','🌺','🌻','💐'].indexOf(fd.type);
+      const fc=FLOWER_COLS[fidx>=0?fidx:0];
+      const head=mesh(new THREE.SphereGeometry(0.2,7,5),fc,false);
+      head.position.y=h+0.42; head.scale.y=0.6; g.add(head);
+      if(fd.watered){
+        const drop=mesh(new THREE.SphereGeometry(0.08,5,4),0x88ccff,false);
+        drop.position.set(0.2,h+0.5,0); drop.material.transparent=true;drop.material.opacity=0.7;
+        g.add(drop);
+      }
+      break;
+    }
+    case T.TREE: {
+      const td=gs.world_trees[`${x},${y}`]||{fruit:'apple',grown:2,lastShake:0,shakeCount:0};
+      const offx=(rng(s,1)-.5)*0.3, offz=(rng(s,2)-.5)*0.3;
+      // 줄기
+      const trunk=mesh(new THREE.CylinderGeometry(0.14,0.2,0.7+td.grown*0.2,8),0x8b5e3c);
+      trunk.position.set(offx, h+0.35+td.grown*0.1, offz); g.add(trunk);
+      if(td.grown>=2){
+        // 잎 (3층)
+        [0.8,1.25,1.6].forEach((cy,i)=>{
+          const r=0.7-i*0.12;
+          const leaf=mesh(new THREE.SphereGeometry(r,8,6),0x4a9e30);
+          leaf.position.set(offx, h+cy, offz); g.add(leaf);
+        });
+        // 열매
+        const now=Date.now();
+        if(td.lastShake===0||(now-td.lastShake)>86400000){
+          const fr=ITEMS[td.fruit];
+          if(fr){
+            [[-0.5,0.6],[0.4,0.8],[-0.3,1.1]].forEach(([fx2,fy2],i)=>{
+              const fruit=mesh(new THREE.SphereGeometry(0.12,6,5),
+                ['apple','cherry'].includes(td.fruit)?0xee4444:
+                td.fruit==='orange'?0xff9900:td.fruit==='pear'?0xddee44:0xee6666);
+              fruit.position.set(offx+fx2*0.5, h+fy2, offz+(i-1)*0.25);
+              fruit.castShadow=false; g.add(fruit);
+            });
+          }
+        }
+      } else {
+        // 묘목
+        const sapling=mesh(new THREE.CylinderGeometry(0.05,0.08,0.3,6),0x5caa38,false);
+        sapling.position.set(offx,h+0.15,offz); g.add(sapling);
+      }
+      break;
+    }
+    case T.ROCK: {
+      const rg=new THREE.SphereGeometry(0.5,8,6);
+      const pos=rg.attributes.position;
+      for(let i=0;i<pos.count;i++){
+        pos.setXYZ(i, pos.getX(i)*(0.8+rng(s+i,1)*0.35),
+                      pos.getY(i)*(0.55+rng(s+i,2)*0.3),
+                      pos.getZ(i)*(0.8+rng(s+i,3)*0.35));
+      }
+      rg.computeVertexNormals();
+      const rm=mesh(rg,0x9090a0); rm.position.y=h+0.25; g.add(rm);
+      break;
+    }
+    case T.DIG_SPOT: {
+      const xmark1=mesh(new THREE.BoxGeometry(0.5,0.04,0.08),0xc09a60,false);
+      const xmark2=mesh(new THREE.BoxGeometry(0.08,0.04,0.5),0xc09a60,false);
+      xmark1.rotation.y=Math.PI/4; xmark2.rotation.y=Math.PI/4;
+      xmark1.position.y=xmark2.position.y=h+0.05;
+      g.add(xmark1); g.add(xmark2); break;
+    }
+    case T.SHOP:      buildShop(g, h); break;
+    case T.MUSEUM:    buildMuseum(g, h); break;
+    case T.NOOK_HQ:   buildNookHQ(g, h); break;
+    case T.PLAYER_HOUSE: buildPlayerHouse(g, h); break;
+    case T.VILLAGER_HOUSE: {
+      const vi=VILLAGERS.find(v=>v.pos[0]===x&&v.pos[1]===y);
+      buildVillagerHouse(g, h, vi); break;
+    }
+  }
+}
+
+function buildShop(g, h) {
+  const wall=mesh(new THREE.BoxGeometry(CS*1.8,1.8,CS*1.8),0xf5e8c8);
+  wall.position.y=h+0.9; g.add(wall);
+  const roof=mesh(new THREE.ConeGeometry(CS*1.4,1.0,4),0xe05030);
+  roof.position.y=h+2.3; roof.rotation.y=Math.PI/4; g.add(roof);
+  // 간판
+  const sign=mesh(new THREE.BoxGeometry(0.8,0.4,0.05),0xffe066);
+  sign.position.set(0,h+1.3,CS*0.9); g.add(sign);
+  // 창문
+  [-0.5,0.5].forEach(wx=>{
+    const win=mesh(new THREE.BoxGeometry(0.4,0.4,0.05),0xaadeee,false);
+    win.position.set(wx,h+1.1,CS*0.9+0.01); g.add(win);
+  });
+}
+function buildMuseum(g, h) {
+  const wall=mesh(new THREE.BoxGeometry(CS*1.8,2.0,CS*1.8),0xddd8b8);
+  wall.position.y=h+1.0; g.add(wall);
+  const roof=mesh(new THREE.BoxGeometry(CS*2.0,0.35,CS*2.0),0x9090a0);
+  roof.position.y=h+2.2; g.add(roof);
+  // 기둥
+  [-0.7,0.7].forEach(cx=>{
+    const col2=mesh(new THREE.CylinderGeometry(0.12,0.14,2.0,8),0xd8d2aa);
+    col2.position.set(cx,h+1.0,CS*0.8); g.add(col2);
+  });
+}
+function buildNookHQ(g, h) {
+  const wall=mesh(new THREE.BoxGeometry(CS*1.8,1.6,CS*1.8),0xaad8ee);
+  wall.position.y=h+0.8; g.add(wall);
+  const roof=mesh(new THREE.ConeGeometry(CS*1.3,0.8,6),0x4488cc);
+  roof.position.y=h+2.1; g.add(roof);
+  const flag=mesh(new THREE.BoxGeometry(0.3,0.5,0.05),0xffcc44);
+  flag.position.set(0.2,h+2.5,0.1); g.add(flag);
+}
+function buildPlayerHouse(g, h) {
+  const lv=gs.house_level;
+  if(lv===0){
+    // 텐트
+    const tent=mesh(new THREE.ConeGeometry(CS*0.8,1.4,6),0x88dd88);
+    tent.position.y=h+0.7; g.add(tent);
+  } else {
+    const w=CS*(1.2+lv*0.2), hi=1.4+lv*0.3;
+    const wall=mesh(new THREE.BoxGeometry(w,hi,CS*1.4),0xfff0e0);
+    wall.position.y=h+hi/2; g.add(wall);
+    const roof=mesh(new THREE.ConeGeometry(CS*(0.9+lv*0.15),0.8+lv*0.1,4),
+      [0xe05030,0x3068c8,0x30c868,0xcc44cc][lv-1]||0xe05030);
+    roof.position.y=h+hi+0.4; roof.rotation.y=Math.PI/4; g.add(roof);
+    // 문
+    const door=mesh(new THREE.BoxGeometry(0.4,0.7,0.06),0xa07040);
+    door.position.set(0,h+0.35,CS*0.7+0.01); g.add(door);
+  }
+}
+function buildVillagerHouse(g, h, vi) {
+  if(!vi) return;
+  const wall=mesh(new THREE.BoxGeometry(CS*1.4,1.5,CS*1.4),0xfff8f0);
+  wall.position.y=h+0.75; g.add(wall);
+  const roof=mesh(new THREE.ConeGeometry(CS,0.7,4),new THREE.Color(vi.color).getHex());
+  roof.position.y=h+1.85; roof.rotation.y=Math.PI/4; g.add(roof);
+}
+
+// ─── 플레이어 캐릭터 ─────────────────────────────────────────
+let playerMesh, playerBody;
+const playerPos  = {x:24*CS, z:33*CS, vy:0, onGround:true};
+const playerLimbs = {};     // {leftLeg, rightLeg, leftArm, rightArm}
+let   playerMoving = false;
+
+// 어떤 player도 공유할 수 있는 빌더 (tint: 헤어 색상으로 구분)
+function buildCharacter(skinC, shirtC, pantsC, hairC, shoeC, limbsOut) {
+  const g = new THREE.Group();
+
+  // ── 다리 피벗 (엉덩이 = y 0.5) ──
+  [[-0.12,0],[0.12,1]].forEach(([sx,i])=>{
+    const pivot = new THREE.Group();
+    pivot.position.set(sx, 0.5, 0);
+    // 허벅지+정강이
+    const leg = mesh(new THREE.BoxGeometry(0.165,0.34,0.165), pantsC);
+    leg.position.y = -0.17;  leg.castShadow=false; pivot.add(leg);
+    // 신발
+    const shoe = mesh(new THREE.BoxGeometry(0.2,0.1,0.3), shoeC);
+    shoe.position.set(0.02, -0.37, 0.04); shoe.castShadow=false; pivot.add(shoe);
+    g.add(pivot);
+    if(i===0) limbsOut.leftLeg=pivot; else limbsOut.rightLeg=pivot;
+  });
+
+  // ── 몸통 ──
+  const body = mesh(new THREE.BoxGeometry(0.52,0.5,0.38), shirtC);
+  body.position.y=0.75; g.add(body);
+
+  // ── 팔 피벗 (어깨 = y 0.92) ──
+  [[-0.32,0],[0.32,1]].forEach(([sx,i])=>{
+    const pivot = new THREE.Group();
+    pivot.position.set(sx, 0.92, 0);
+    const arm = mesh(new THREE.CylinderGeometry(0.09,0.08,0.34,7), shirtC);
+    arm.position.y=-0.17; arm.castShadow=false; pivot.add(arm);
+    const hand = mesh(new THREE.SphereGeometry(0.09,8,6), skinC);
+    hand.position.y=-0.37; hand.castShadow=false; pivot.add(hand);
+    g.add(pivot);
+    if(i===0) limbsOut.leftArm=pivot; else limbsOut.rightArm=pivot;
+  });
+
+  // ── 목 ──
+  const neck = mesh(new THREE.CylinderGeometry(0.1,0.12,0.1,8), skinC);
+  neck.position.y=1.02; neck.castShadow=false; g.add(neck);
+
+  // ── 머리 (AC 특유의 크고 동글동글) ──
+  const head = mesh(new THREE.SphereGeometry(0.44,14,12), skinC);
+  head.scale.set(1,0.91,0.94); head.position.y=1.42; g.add(head);
+
+  // ── 머리카락 ──
+  const hairCap = mesh(new THREE.SphereGeometry(0.44,12,10), hairC);
+  hairCap.scale.set(1.01,0.52,1.01); hairCap.position.set(0,1.71,0);
+  hairCap.castShadow=false; g.add(hairCap);
+  // 앞머리
+  [-0.22,0,0.22].forEach((hx,bi)=>{
+    const bang = mesh(new THREE.SphereGeometry(0.145,8,6), hairC);
+    bang.position.set(hx, 1.55, 0.33-bi*0.01); bang.castShadow=false; g.add(bang);
+  });
+  // 옆머리
+  [-1,1].forEach(side=>{
+    const sh = mesh(new THREE.SphereGeometry(0.16,7,5), hairC);
+    sh.position.set(side*0.39, 1.37, 0.08); sh.castShadow=false; g.add(sh);
+  });
+
+  // ── 눈 (흰자→홍채→동공→HL→눈썹) ──
+  [-0.17,0.17].forEach((ex,ei)=>{
+    const ew = mesh(new THREE.SphereGeometry(0.108,9,8), 0xffffff, false);
+    ew.scale.set(0.88,1.12,0.52); ew.position.set(ex,1.42,0.38); g.add(ew);
+    const iris = mesh(new THREE.SphereGeometry(0.072,8,6), 0x2255cc, false);
+    iris.scale.set(0.88,1.12,0.46); iris.position.set(ex,1.42,0.41); g.add(iris);
+    const pupil = mesh(new THREE.SphereGeometry(0.042,6,5), 0x111111, false);
+    pupil.scale.set(0.88,1.12,0.42); pupil.position.set(ex,1.42,0.425); g.add(pupil);
+    const hl = mesh(new THREE.SphereGeometry(0.02,5,4), 0xffffff, false);
+    hl.position.set(ex+0.03,1.46,0.435); g.add(hl);
+    // 눈썹
+    const brow = mesh(new THREE.BoxGeometry(0.13,0.026,0.04), hairC, false);
+    brow.position.set(ex,1.54,0.37); brow.rotation.z=ex<0?0.18:-0.18; g.add(brow);
+  });
+
+  // ── 볼터치 ──
+  [-0.25,0.25].forEach(cx=>{
+    const cheek = mesh(new THREE.SphereGeometry(0.08,7,5), 0xffaaaa, false);
+    cheek.scale.set(1.35,0.62,0.38); cheek.position.set(cx,1.31,0.37); g.add(cheek);
+  });
+
+  // ── 입 ──
+  const smile = mesh(new THREE.TorusGeometry(0.068,0.022,6,10,Math.PI), 0xcc7755, false);
+  smile.rotation.z=Math.PI; smile.position.set(0,1.27,0.41); g.add(smile);
+
+  // ── 귀 ──
+  [-1,1].forEach(side=>{
+    const ear = mesh(new THREE.SphereGeometry(0.11,8,6), skinC);
+    ear.scale.set(0.44,0.86,0.86); ear.position.set(side*0.45,1.4,0);
+    ear.castShadow=false; g.add(ear);
+  });
+
+  g.castShadow=true;
+  return g;
+}
+
+function buildPlayer() {
+  if(playerMesh){ scene.remove(playerMesh); disposeMesh(playerMesh); }
+  Object.keys(playerLimbs).forEach(k=>delete playerLimbs[k]);
+  playerMesh = buildCharacter(0xfde0b8, 0x5ba3e0, 0x3a5f8a, 0x5c3317, 0x3a2a1a, playerLimbs);
+  scene.add(playerMesh);
+}
+
+// 걷기 애니메이션 공통함수
+function animateLimbs(limbs, moving, phaseOffset=0) {
+  const t = performance.now()*0.0055 + phaseOffset;
+  const sw = moving ? 0.55 : 0;
+  const idle = !moving;
+  const decay = 0.82;
+  if(!limbs.leftLeg) return;
+  if(moving) {
+    limbs.leftLeg.rotation.x  =  Math.sin(t)*sw;
+    limbs.rightLeg.rotation.x = -Math.sin(t)*sw;
+    if(limbs.leftArm){
+      limbs.leftArm.rotation.x  = -Math.sin(t)*0.44;
+      limbs.rightArm.rotation.x =  Math.sin(t)*0.44;
+    }
+  } else {
+    limbs.leftLeg.rotation.x  *= decay;
+    limbs.rightLeg.rotation.x *= decay;
+    if(limbs.leftArm){
+      // 숨쉬기 유휴 모션
+      const breath = Math.sin(performance.now()*0.001)*0.018;
+      limbs.leftArm.rotation.x  = breath;
+      limbs.rightArm.rotation.x = breath;
+    }
+  }
+}
+
+// ─── 주민 NPC ───────────────────────────────────────────────
+const npcMeshes = {};
+const npcState  = {};
+
+function buildNPC(vi) {
+  const bc=vi.color;
+  const r=((bc>>16)&0xff), gv=((bc>>8)&0xff), b=(bc&0xff);
+  const lighter=((Math.min(r+70,255)<<16)|(Math.min(gv+70,255)<<8)|Math.min(b+70,255));
+  const darker =((Math.max(r-50,0)<<16) |(Math.max(gv-50,0)<<8) |Math.max(b-50,0));
+
+  const limbs={};
+  const g = buildCharacter(lighter, bc, darker, bc, 0x3a2a1a, limbs);
+  // 동물별 특징 추가
+  if(vi.type==='bunny'){
+    [-0.15,0.15].forEach(ex=>{
+      const earO=mesh(new THREE.CylinderGeometry(0.07,0.09,0.6,7),bc);
+      earO.position.set(ex,1.9,0); earO.rotation.z=ex>0?-0.13:0.13; g.add(earO);
+      const earI=mesh(new THREE.CylinderGeometry(0.04,0.055,0.52,6),0xffb0bb);
+      earI.position.set(ex,1.9,0.045); earI.rotation.z=ex>0?-0.13:0.13; g.add(earI);
+    });
+    const nose=mesh(new THREE.SphereGeometry(0.05,6,5),0xffaacc,false);
+    nose.position.set(0,1.32,0.42); g.add(nose);
+  } else if(vi.type==='bear'){
+    [-0.24,0.24].forEach(ex=>{
+      const earO=mesh(new THREE.SphereGeometry(0.14,8,6),bc);
+      earO.position.set(ex,1.82,0); g.add(earO);
+      const earI=mesh(new THREE.SphereGeometry(0.08,7,5),lighter);
+      earI.position.set(ex,1.82,0.06); g.add(earI);
+    });
+    const muzzle=mesh(new THREE.SphereGeometry(0.16,9,7),lighter);
+    muzzle.scale.set(1.1,0.78,0.68); muzzle.position.set(0,1.3,0.35); g.add(muzzle);
+  } else if(vi.type==='frog'){
+    [-0.2,0.2].forEach(ex=>{
+      const eb=mesh(new THREE.SphereGeometry(0.15,9,7),bc);
+      eb.position.set(ex,1.62,0.08); g.add(eb);
+      const ew=mesh(new THREE.SphereGeometry(0.1,8,6),0xffffff,false);
+      ew.position.set(ex,1.64,0.19); g.add(ew);
+      const ep=mesh(new THREE.SphereGeometry(0.06,6,5),0x111111,false);
+      ep.position.set(ex,1.64,0.26); g.add(ep);
+    });
+    const fSmile=mesh(new THREE.TorusGeometry(0.11,0.026,6,10,Math.PI),bc,false);
+    fSmile.rotation.z=Math.PI; fSmile.position.set(0,1.24,0.39); g.add(fSmile);
+  }
+
+  g.position.set(vi.pos[0]*CS, 0, vi.pos[1]*CS);
+  scene.add(g);
+  npcMeshes[vi.id]=g;
+
+  npcState[vi.id]={
+    home:[vi.pos[0]*CS, vi.pos[1]*CS],
+    wx:vi.pos[0]*CS, wz:vi.pos[1]*CS,
+    dir:Math.random()*Math.PI*2,
+    moveTimer:100+Math.random()*200,
+    aiState:'WALK', stateTimer:0,
+    personality:vi.personality||{energy:Math.random(),social:Math.random(),curious:Math.random()},
+    memory:{playerVisits:0,lastPlayerItem:null,heardFrom:{},learnedPhrases:[],scenario:null},
+    friendship:gs?(gs.talked_to[vi.id]||0):0,
+    chatCooldown:0, targetVillager:null, targetPos:null,
+    limbs,
+  };
+}
+
+// ─── 주민 AI ─────────────────────────────────────────────────
+// 시나리오 템플릿: [조건함수, 대화 생성함수]
+const NPC_SCENARIOS = [
+  // 새벽/이른 아침
+  { cond:(st,hour)=>hour>=6&&hour<9,
+    gen:(vi,st)=>`${vi.name}: 아침이다~ 오늘도 좋은 하루 될 것 같아!` },
+  // 점심
+  { cond:(st,hour)=>hour>=12&&hour<14,
+    gen:(vi,st)=>`${vi.name}: 배고프다... 점심 뭐 먹지?` },
+  // 저녁
+  { cond:(st,hour)=>hour>=18&&hour<21,
+    gen:(vi,st)=>`${vi.name}: 노을이 예쁘다~ 오늘 하루도 수고했어!` },
+  // 플레이어랑 친해졌을 때
+  { cond:(st,hour)=>st.friendship>=3,
+    gen:(vi,st)=>{
+      const extras=['또 왔구나! 보고 싶었어~','오늘 뭐 하고 있었어? 나도 같이 하고 싶어!','혹시 낚시 잘 해? 나 배우고 싶어!'];
+      return `${vi.name}: ${extras[st.friendship%extras.length]}`;
+    }},
+  // 학습한 문구 재사용
+  { cond:(st,hour)=>st.memory.learnedPhrases.length>0&&Math.random()<0.4,
+    gen:(vi,st)=>{
+      const phrase=st.memory.learnedPhrases[Math.floor(Math.random()*st.memory.learnedPhrases.length)];
+      return `${vi.name}: (${phrase}라고 하던데...) 맞나?`;
+    }},
+  // 에너지 높으면 운동
+  { cond:(st,hour)=>st.personality.energy>0.7,
+    gen:(vi,st)=>`${vi.name}: 운동하러 갈래? 몸을 움직여야 기분이 좋아지거든!` },
+  // 소심하면 혼잣말
+  { cond:(st,hour)=>st.personality.social<0.3,
+    gen:(vi,st)=>`${vi.name}: (혼자 중얼중얼) ...오늘도 조용하네.` },
+  // 기본 대화
+  { cond:()=>true,
+    gen:(vi,st)=>{
+      const d=vi.dialogues;
+      return `${vi.name}: ${d[Math.floor(Math.random()*d.length)]}`;
+    }},
+];
+
+function getNPCDialogue(vi, st) {
+  const hour=new Date().getHours();
+  for(const sc of NPC_SCENARIOS){
+    if(sc.cond(st,hour)) return sc.gen(vi,st);
+  }
+  return `${vi.name}: ...`;
+}
+
+// 주민 간 대화 이벤트 (랜덤하게 발생, 서로 문구 공유)
+function tryVillagerChat(viA, viB) {
+  const stA=npcState[viA.id], stB=npcState[viB.id];
+  if(!stA||!stB) return;
+  if(stA.chatCooldown>0||stB.chatCooldown>0) return;
+
+  // 가까이 있을 때만
+  const dx=stA.wx-stB.wx, dz=stA.wz-stB.wz;
+  if(Math.sqrt(dx*dx+dz*dz)>CS*3) return;
+
+  // 문구 공유 학습
+  const phraseA=viA.dialogues[Math.floor(Math.random()*viA.dialogues.length)];
+  const phraseB=viB.dialogues[Math.floor(Math.random()*viB.dialogues.length)];
+  if(!stB.memory.learnedPhrases.includes(phraseA)) stB.memory.learnedPhrases.push(phraseA);
+  if(!stA.memory.learnedPhrases.includes(phraseB)) stA.memory.learnedPhrases.push(phraseB);
+  stA.memory.heardFrom[viB.id]=(stA.memory.heardFrom[viB.id]||0)+1;
+  stB.memory.heardFrom[viA.id]=(stB.memory.heardFrom[viA.id]||0)+1;
+
+  stA.chatCooldown=800; stB.chatCooldown=800;
+  stA.aiState='CHAT_IDLE'; stB.aiState='CHAT_IDLE';
+  stA.stateTimer=120; stB.stateTimer=120;
+  // 두 주민이 서로 바라봄
+  stA.dir=Math.atan2(stB.wx-stA.wx, stB.wz-stA.wz);
+  stB.dir=Math.atan2(stA.wx-stB.wx, stA.wz-stB.wz);
+}
+
+function updateNPCs(dt) {
+  const hour=new Date().getHours();
+  const NPC_WALK=new Set([T.GRASS,T.PATH,T.FLOWER,T.BRIDGE,T.BEACH]);
+
+  // 주민 간 대화 시도 (매 120프레임마다)
+  if(Math.floor(performance.now()/120)%3===0){
+    for(let i=0;i<VILLAGERS.length;i++){
+      for(let j=i+1;j<VILLAGERS.length;j++){
+        if(Math.random()<0.02) tryVillagerChat(VILLAGERS[i],VILLAGERS[j]);
+      }
+    }
+  }
+
+  VILLAGERS.forEach(vi=>{
+    const m=npcMeshes[vi.id], st=npcState[vi.id];
+    if(!m||!st) return;
+
+    // 밤엔 잠
+    if(hour>=22||hour<6){ m.visible=false; return; }
+    m.visible=true;
+
+    if(st.chatCooldown>0) st.chatCooldown-=dt;
+
+    // ─── 상태머신 ───
+    st.stateTimer-=dt;
+
+    switch(st.aiState){
+      case 'IDLE':
+        // 가만히 서서 주변 보기
+        if(st.stateTimer<=0){
+          const roll=Math.random();
+          if(roll<st.personality.energy*0.6) st.aiState='WALK';
+          else if(roll<0.3&&st.personality.social>0.5) st.aiState='LOOK_AROUND';
+          else st.aiState='WALK';
+          st.stateTimer=60+Math.random()*180;
+          st.dir=Math.random()*Math.PI*2;
+        }
+        // 조용히 bob만
+        break;
+
+      case 'WALK':
+        st.moveTimer-=dt;
+        if(st.moveTimer<=0){
+          // 에너지 높으면 자주 방향 바꿈
+          st.dir+=( Math.random()-0.5)*Math.PI*(1+st.personality.energy);
+          st.moveTimer=80+Math.random()*(200-st.personality.energy*100);
+        }
+        const spd=0.008+st.personality.energy*0.01;
+        const nx=st.wx+Math.sin(st.dir)*spd*dt;
+        const nz=st.wz+Math.cos(st.dir)*spd*dt;
+        const tx=Math.round(nx/CS), tz=Math.round(nz/CS);
+        const hdx=nx-st.home[0], hdz=nz-st.home[1];
+        const homeDist=Math.sqrt(hdx*hdx+hdz*hdz);
+        if(NPC_WALK.has(getTile(tx,tz))&&homeDist<CS*5){
+          st.wx=nx; st.wz=nz;
+        } else {
+          // 집 방향으로 돌아가기
+          st.dir=Math.atan2(st.home[0]-st.wx, st.home[1]-st.wz)+( Math.random()-0.5)*0.8;
+          st.moveTimer=40;
+        }
+        if(st.stateTimer<=0){
+          const next=['IDLE','SIT','LOOK_AROUND'];
+          st.aiState=next[Math.floor(Math.random()*next.length)];
+          st.stateTimer=60+Math.random()*200;
+        }
+        break;
+
+      case 'SIT':
+        // 앉아 쉬기 (scale Y 줄여서 표현)
+        m.scale.y=0.85;
+        if(st.stateTimer<=0){
+          m.scale.y=1;
+          st.aiState='WALK';
+          st.stateTimer=80+Math.random()*150;
+        }
+        break;
+
+      case 'LOOK_AROUND':
+        // 천천히 회전하며 주변 관찰
+        st.dir+=0.01*dt;
+        if(st.stateTimer<=0){
+          st.aiState=Math.random()<0.5?'IDLE':'WALK';
+          st.stateTimer=60+Math.random()*120;
+        }
+        break;
+
+      case 'CHAT_IDLE':
+        // 대화 중 — 서로 바라보고 가만히 있음
+        if(st.stateTimer<=0){ st.aiState='IDLE'; st.stateTimer=60; }
+        break;
+
+      case 'REACT':
+        // 플레이어에 반응 (점프 bob 크게)
+        if(st.stateTimer<=0){ st.aiState='IDLE'; m.scale.y=1; st.stateTimer=60; }
+        break;
+    }
+
+    // 위치 적용
+    const ftx=Math.round(st.wx/CS), ftz=Math.round(st.wz/CS);
+    m.position.set(st.wx, tileH(ftx,ftz), st.wz);
+    m.rotation.y=Math.atan2(Math.sin(st.dir),Math.cos(st.dir));
+
+    // 팔다리 걷기 애니메이션
+    animateLimbs(st.limbs, st.aiState==='WALK', vi.id.charCodeAt(0));
+
+    // 상체 bob
+    const tNow=performance.now()*0.002;
+    const bobAmt=(st.aiState==='WALK')?0.04:(st.aiState==='REACT')?0.12:0.012;
+    m.position.y+=Math.abs(Math.sin(tNow*2+vi.id.charCodeAt(0)))*bobAmt;
+  });
+}
+
+// 플레이어가 주민에게 말 걸었을 때 AI 반응
+function npcPlayerInteract(viId) {
+  const vi=VILLAGERS.find(v=>v.id===viId);
+  const st=npcState[viId];
+  if(!vi||!st) return null;
+  st.memory.playerVisits++;
+  st.friendship=Math.min(10,(gs.talked_to[viId]||0)+1);
+  st.aiState='REACT'; st.stateTimer=80;
+  // 시나리오 기반 대화
+  return getNPCDialogue(vi, st);
+}
+
+function tileH(tx,tz){ return TILE_HEIGHT[getTile(tx,tz)]??0.08; }
+
+// ─── 카메라 시스템 (AC 고정 각도) ────────────────────────────
+let camAngle = 0;             // 남쪽 카메라 → 북쪽(건물) 방향을 바라봄
+const CAM_EL  = 0.75;         // 앙각 ~43°
+const CAM_DST = 28;
+let camTargetX=27*CS, camTargetZ=27*CS;
+
+function updateCamera() {
+  const px=playerPos.x, pz=playerPos.z;
+  camTargetX+=(px-camTargetX)*0.1;
+  camTargetZ+=(pz-camTargetZ)*0.1;
+  const cx=camTargetX+CAM_DST*Math.sin(camAngle)*Math.cos(CAM_EL);
+  const cy=CAM_DST*Math.sin(CAM_EL)+1;
+  const cz=camTargetZ+CAM_DST*Math.cos(camAngle)*Math.cos(CAM_EL);
+  camera.position.set(cx,cy,cz);
+  camera.lookAt(camTargetX,1.0,camTargetZ);
+  sunLight.position.set(camTargetX+20,40,camTargetZ+15);
+  sunLight.target.position.set(camTargetX,0,camTargetZ);
+  sunLight.target.updateMatrixWorld();
+}
+
+// ─── 입력 처리 ───────────────────────────────────────────────
+const keys={};
+document.addEventListener('keydown',e=>{
+  keys[e.code]=true;
+  if(e.code==='KeyQ') rotateCam(-1);
+  if(e.code==='KeyE' && !dialogueOpen) tryInteract();
+  if(e.code==='Escape') closeAllPanels();
+  if(e.code==='KeyI') togglePanel('inv');
+  // 카메라 회전
+  if(e.code==='BracketLeft')  rotateCam(-1);
+  if(e.code==='BracketRight') rotateCam(1);
+});
+document.addEventListener('keyup',e=>{ keys[e.code]=false; });
+
+function rotateCam(dir) {
+  camAngle+=dir*Math.PI/2;
+}
+
+// ─── 모바일 조이스틱 ─────────────────────────────────────────
+const joystick={active:false, x:0, y:0};
+
+function initMobileControls(){
+  if(!('ontouchstart' in window)&&navigator.maxTouchPoints<1) return;
+  const zone=document.getElementById('joystick-zone');
+  const base=document.getElementById('joystick-base');
+  const knob=document.getElementById('joystick-knob');
+  zone.style.display='block';
+  document.getElementById('mobile-btns').style.display='flex';
+
+  const RADIUS=46;
+  let touchId=null, cx=0, cy=0;
+
+  function getCenter(){
+    const r=base.getBoundingClientRect();
+    cx=r.left+r.width/2; cy=r.top+r.height/2;
+  }
+
+  zone.addEventListener('touchstart',e=>{
+    e.preventDefault();
+    const t=e.changedTouches[0];
+    touchId=t.identifier;
+    getCenter();
+    joystick.active=true;
+    playBGM();
+  },{passive:false});
+
+  zone.addEventListener('touchmove',e=>{
+    e.preventDefault();
+    for(const t of e.changedTouches){
+      if(t.identifier!==touchId) continue;
+      const ddx=t.clientX-cx, ddy=t.clientY-cy;
+      const dist=Math.sqrt(ddx*ddx+ddy*ddy);
+      const clamped=Math.min(dist,RADIUS);
+      const angle=Math.atan2(ddy,ddx);
+      const kx=Math.cos(angle)*clamped, ky=Math.sin(angle)*clamped;
+      knob.style.left=(50+kx/RADIUS*42)+'%';
+      knob.style.top =(50+ky/RADIUS*42)+'%';
+      knob.style.transform='translate(-50%,-50%)';
+      joystick.x=kx/RADIUS;
+      joystick.y=ky/RADIUS;
+    }
+  },{passive:false});
+
+  const endTouch=e=>{
+    for(const t of e.changedTouches){
+      if(t.identifier!==touchId) continue;
+      joystick.active=false; joystick.x=0; joystick.y=0;
+      knob.style.left='50%'; knob.style.top='50%';
+      touchId=null;
+    }
+  };
+  zone.addEventListener('touchend',endTouch,{passive:false});
+  zone.addEventListener('touchcancel',endTouch,{passive:false});
+
+  // 모바일 BGM 트리거
+  document.addEventListener('touchstart',playBGM,{once:true});
+  // 모바일에서 패널 스크롤 허용
+  document.querySelectorAll('.panel').forEach(p=>{
+    p.addEventListener('touchmove',e=>e.stopPropagation(),{passive:true});
+  });
+}
+
+// ─── 플레이어 이동 ───────────────────────────────────────────
+let playerDir = 'down';
+const WALKABLE = new Set([T.GRASS,T.PATH,T.FLOWER,T.BRIDGE,T.CLIFF,T.BEACH,
+  T.SHOP,T.MUSEUM,T.NOOK_HQ,T.PLAYER_HOUSE,T.VILLAGER_HOUSE,T.TREE,T.ROCK,
+  T.DIG_SPOT,T.WATERFALL]);
+const INTERACTABLE = new Set([T.TREE,T.ROCK,T.SHOP,T.MUSEUM,T.NOOK_HQ,
+  T.PLAYER_HOUSE,T.VILLAGER_HOUSE,T.FLOWER,T.DIG_SPOT]);
+
+let moveAccum=0;
+function updatePlayer(dt) {
+  if(dialogueOpen) return;
+  const spd=0.045;
+  // 카메라 기준 방향 벡터
+  const fw = {x:-Math.sin(camAngle), z:-Math.cos(camAngle)};
+  const rt = {x: Math.cos(camAngle), z:-Math.sin(camAngle)};
+  let dx=0, dz=0;
+
+  if(keys['KeyW']||keys['ArrowUp'])    {dx+=fw.x;dz+=fw.z;playerDir='up';}
+  if(keys['KeyS']||keys['ArrowDown'])  {dx-=fw.x;dz-=fw.z;playerDir='down';}
+  if(keys['KeyA']||keys['ArrowLeft'])  {dx-=rt.x;dz-=rt.z;playerDir='left';}
+  if(keys['KeyD']||keys['ArrowRight']) {dx+=rt.x;dz+=rt.z;playerDir='right';}
+
+  // 조이스틱 입력
+  if(joystick.active&&(Math.abs(joystick.x)>0.08||Math.abs(joystick.y)>0.08)){
+    dx += fw.x*(-joystick.y) + rt.x*joystick.x;
+    dz += fw.z*(-joystick.y) + rt.z*joystick.x;
+  }
+
+  playerMoving = !!(dx||dz);
+  if(playerMoving){
+    const len=Math.sqrt(dx*dx+dz*dz);
+    dx/=len; dz/=len;
+    const nx=playerPos.x+dx*spd*dt;
+    const nz=playerPos.z+dz*spd*dt;
+    const tx=Math.round(nx/CS), tz=Math.round(nz/CS);
+    if(WALKABLE.has(getTile(tx,tz))){
+      playerPos.x=nx; playerPos.z=nz;
+    }
+    playerMesh.rotation.y=Math.atan2(dx,dz);
+    moveAccum+=dt;
+    if(moveAccum>18){moveAccum=0;playSound('step');}
+  }
+
+  const th=tileH(Math.round(playerPos.x/CS),Math.round(playerPos.z/CS));
+  playerMesh.position.set(playerPos.x, th, playerPos.z);
+  // 걷기 bob (상체만 살짝)
+  if(playerMoving) playerMesh.position.y=th+Math.abs(Math.sin(performance.now()*0.013))*0.05;
+
+  // 팔다리 걷기 애니메이션
+  animateLimbs(playerLimbs, playerMoving);
+
+  updateFacingMarker();
+}
+
+// ─── 인터랙션 마커 ───────────────────────────────────────────
+let facingMarkerMesh;
+function buildFacingMarker(){
+  const rg=new THREE.RingGeometry(CS*0.42,CS*0.5,20);
+  rg.rotateX(-Math.PI/2);
+  facingMarkerMesh=new THREE.Mesh(rg,
+    new THREE.MeshBasicMaterial({color:0xffee88,transparent:true,opacity:0.7,side:THREE.DoubleSide}));
+  facingMarkerMesh.position.y=0.12;
+  scene.add(facingMarkerMesh);
+}
+function facingTile(){
+  const DIR_DELTA={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]};
+  const d=DIR_DELTA[playerDir]||[0,1];
+  const tx=Math.round(playerPos.x/CS)+d[0];
+  const tz=Math.round(playerPos.z/CS)+d[1];
+  return {x:tx,y:tz,t:getTile(tx,tz)};
+}
+function updateFacingMarker(){
+  const ft=facingTile();
+  if(INTERACTABLE.has(ft.t)||gs.world_dig_spots[`${ft.x},${ft.y}`]||
+     getTile(ft.x,ft.y)===T.RIVER){
+    facingMarkerMesh.visible=true;
+    facingMarkerMesh.position.set(ft.x*CS, tileH(ft.x,ft.y)+0.08, ft.y*CS);
+  } else { facingMarkerMesh.visible=false; }
+}
+
+// ─── 낚시 시스템 ─────────────────────────────────────────────
+let fishingState = null; // null|'cast'|'wait'|'bite'|'catch'
+let fishingTimer  = 0;
+let catchProgress = 0;
+
+function tryFish() {
+  const ft=facingTile();
+  const adj=[ft,{x:ft.x+1,y:ft.y},{x:ft.x-1,y:ft.y},{x:ft.x,y:ft.y+1},{x:ft.x,y:ft.y-1}];
+  const nearWater=adj.some(p=>getTile(p.x,p.y)===T.RIVER||getTile(p.x,p.y)===T.OCEAN);
+  if(!nearWater){ notify('🎣 물가 근처에 서야 해요!'); return; }
+  if(fishingState===null){
+    fishingState='cast';
+    fishingTimer=80+Math.random()*120;
+    document.getElementById('fishing-ui').style.display='block';
+    document.getElementById('fish-hint').textContent='🎣 찌를 던졌어요! 기다리세요...';
+    document.getElementById('catch-bar').style.display='none';
+    playSound('cast');
+  }
+}
+function updateFishing(dt){
+  if(!fishingState) return;
+  fishingTimer-=dt;
+  if(fishingState==='cast'&&fishingTimer<=0){
+    fishingState='bite';
+    fishingTimer=40;
+    document.getElementById('fish-hint').textContent='🐟 찌가 움직여요! E를 누르세요!';
+    playSound('bite');
+    // 찌 흔들기
+    notif('🐟 찌가 움직인다!');
+  } else if(fishingState==='bite'){
+    fishingTimer-=dt;
+    if(fishingTimer<=0){
+      // 놓침
+      fishingState=null;
+      document.getElementById('fishing-ui').style.display='none';
+      notify('😢 놓쳤어요...');
+      playSound('miss');
+    }
+  } else if(fishingState==='catch'){
+    catchProgress+=dt*1.8;
+    document.getElementById('catch-fill').style.width=Math.min(catchProgress,100)+'%';
+    if(catchProgress>=100){
+      // 성공!
+      landFish();
+    }
+  }
+}
+function reelIn(){
+  if(fishingState==='bite'){
+    fishingState='catch';
+    catchProgress=0;
+    document.getElementById('catch-bar').style.display='block';
+    document.getElementById('fish-hint').textContent='🎣 당겨요! E를 계속 누르세요!';
+    playSound('reel');
+  } else if(fishingState==='catch'){
+    catchProgress+=8;
+  }
+}
+function landFish(){
+  fishingState=null;
+  document.getElementById('fishing-ui').style.display='none';
+  // 물고기 결정
+  const r=Math.random();
+  let pool=[...FISH_POOL];
+  // 강에 가까우면 민물 고기 위주
+  const ft=facingTile();
+  const inRiver=getTile(ft.x,ft.y)===T.RIVER;
+  const river_fish=['dace','carp','crucian','goldfish','pale_chub','frog2'];
+  const sea_fish=['sea_bass','oarfish','tuna','shark'];
+  if(inRiver) pool=pool.filter(f=>river_fish.includes(f));
+  else        pool=pool.filter(f=>sea_fish.includes(f)||Math.random()<0.3);
+  if(!pool.length) pool=FISH_POOL;
+
+  const fish=pool[Math.floor(Math.random()*pool.length)];
+  const item=ITEMS[fish];
+  addItem(fish,1);
+  gs.total_fish++;
+  notify(`🎣 ${item.emoji} ${item.name}을(를) 잡았어요!`);
+  spawnParticles(playerPos.x, tileH(Math.round(playerPos.x/CS),Math.round(playerPos.z/CS))+1.5, playerPos.z, '💧', 5);
+  checkMilestone('first_catch');
+  if(Object.keys(gs.museum.fish).length>=5) checkMilestone('donate_fish');
+  saveState(); updateUI();
+  playSound('catch');
+}
+
+// ─── 벌레 채집 ────────────────────────────────────────────────
+function tryBug(){
+  const ft=facingTile();
+  const adjTiles=[ft,{x:ft.x,y:ft.y-1},{x:ft.x,y:ft.y+1}];
+  const nearFlower=adjTiles.some(p=>{
+    const t=getTile(p.x,p.y);
+    return t===T.FLOWER||t===T.GRASS||t===T.TREE;
+  });
+  if(Math.random()<(nearFlower?0.65:0.35)){
+    const r=Math.random();
+    let cum=0;
+    let caught=null;
+    for(const bk of BUG_POOL){
+      cum+=ITEMS[bk].rarity;
+      if(r<cum){caught=bk;break;}
+    }
+    if(!caught) caught=BUG_POOL[0];
+    addItem(caught,1);
+    gs.total_bugs++;
+    notify(`🦋 ${ITEMS[caught].emoji} ${ITEMS[caught].name}을(를) 잡았어요!`);
+    spawnParticles(playerPos.x,tileH(Math.round(playerPos.x/CS),Math.round(playerPos.z/CS))+1.5,playerPos.z,'🦋',4);
+    checkMilestone('first_bug');
+    saveState(); updateUI();
+    playSound('catch');
+  } else {
+    notify('😔 놓쳤어요...');
+    playSound('miss');
+  }
+}
+
+// ─── 화석 발굴 ────────────────────────────────────────────────
+function tryShovel(){
+  const ft=facingTile();
+  const key=`${ft.x},${ft.y}`;
+  const ds=gs.world_dig_spots[key];
+  if(ds&&!ds.found){
+    ds.found=true;
+    addItem(ds.fossil,1);
+    gs.total_fossils++;
+    notify(`💀 ${ITEMS[ds.fossil].emoji} ${ITEMS[ds.fossil].name}을(를) 발굴했어요!`);
+    refreshTile(ft.x,ft.y);
+    checkMilestone('first_fossil');
+    saveState(); updateUI();
+    playSound('dig');
+  } else if(ft.t===T.FLOWER&&gs.world_flowers[key]){
+    // 꽃 캐기
+    const fl=gs.world_flowers[key];
+    delete gs.world_flowers[key];
+    setTile(ft.x,ft.y,T.GRASS);
+    refreshTile(ft.x,ft.y);
+    addItem('seed_flower',1);
+    notify('🌱 꽃씨를 얻었어요!');
+    saveState(); updateUI();
+  } else {
+    notify('⛏️ 여기서 발굴할 수 없어요.');
+  }
+}
+
+// ─── 나무 도끼 ────────────────────────────────────────────────
+function tryAxe(){
+  const ft=facingTile();
+  if(ft.t===T.TREE){
+    const key=`${ft.x},${ft.y}`;
+    addItem('wood',1+Math.floor(Math.random()*2));
+    if(Math.random()<0.3) addItem('iron',1);
+    // 나무 털기 (열매)
+    const td=gs.world_trees[key];
+    const now=Date.now();
+    if(td&&(td.lastShake===0||(now-td.lastShake)>86400000)){
+      td.lastShake=now;
+      const cnt=1+Math.floor(Math.random()*2);
+      addItem(td.fruit,cnt);
+      notify(`🪓 ${ITEMS[td.fruit].emoji} 열매 ${cnt}개를 얻었어요!`);
+      refreshTile(ft.x,ft.y);
+    } else {
+      notify('🪵 나무에서 목재를 얻었어요!');
+    }
+    saveState(); updateUI();
+    playSound('chop');
+  } else if(ft.t===T.ROCK){
+    addItem('stone',1+Math.floor(Math.random()*2));
+    if(Math.random()<0.2) addItem('iron',1);
+    notify('🪨 돌을 얻었어요!');
+    saveState(); updateUI();
+    playSound('chop');
+  } else {
+    notify('여기서는 도끼를 사용할 수 없어요.');
+  }
+}
+
+// ─── 물뿌리개 ─────────────────────────────────────────────────
+function tryWatering(){
+  const ft=facingTile();
+  const key=`${ft.x},${ft.y}`;
+  if(ft.t===T.FLOWER&&gs.world_flowers[key]){
+    gs.world_flowers[key].watered=true;
+    notify('🌿 꽃에 물을 줬어요! 내일 더 예뻐질 거예요 🌸');
+    refreshTile(ft.x,ft.y);
+    checkMilestone('water_flower');
+    saveState(); updateUI();
+    playSound('water');
+  } else if(ft.t===T.TREE){
+    const td=gs.world_trees[key];
+    if(td&&td.grown<2){ td.grown=Math.min(2,td.grown+1); refreshTile(ft.x,ft.y); notify('🌱 나무가 자라고 있어요!'); saveState(); }
+    else notify('🌳 나무가 충분히 자랐어요!');
+  } else {
+    notify('🌿 물뿌리개를 사용할 곳이 없어요.');
+  }
+}
+
+// ─── 인터랙션 메인 ───────────────────────────────────────────
+let dialogueOpen=false;
+let currentTool='net';
+
+function selectTool(t){
+  currentTool=t;
+  document.querySelectorAll('.tool-btn').forEach(b=>b.classList.toggle('active',b.dataset.tool===t));
+}
+
+function tryInteract(){
+  if(dialogueOpen){ closeDialogue(); return; }
+  if(fishingState==='bite'||fishingState==='catch'){ reelIn(); return; }
+  if(currentTool==='rod') { tryFish(); return; }
+  const ft=facingTile();
+
+  // 주민과 대화
+  const vi=VILLAGERS.find(v=>v.pos[0]===ft.x&&v.pos[1]===ft.y);
+  if(vi){ talkTo(vi); return; }
+
+  // 건물 입장
+  if(ft.t===T.SHOP)    { openShop(); return; }
+  if(ft.t===T.MUSEUM)  { openMuseum(); return; }
+  if(ft.t===T.NOOK_HQ) { openNookHQ(); return; }
+  if(ft.t===T.PLAYER_HOUSE){ openHouseMenu(); return; }
+
+  // 도구 사용
+  switch(currentTool){
+    case 'net':      tryBug(); break;
+    case 'shovel':   tryShovel(); break;
+    case 'axe':      tryAxe(); break;
+    case 'watering': tryWatering(); break;
+  }
+  // 나무 열매 수동 수거
+  if(ft.t===T.TREE&&currentTool==='net'){
+    const key=`${ft.x},${ft.y}`;
+    const td=gs.world_trees[key];
+    const now=Date.now();
+    if(td&&(td.lastShake===0||(now-td.lastShake)>86400000)){
+      td.lastShake=now;
+      const cnt=1+Math.floor(Math.random()*2);
+      addItem(td.fruit,cnt);
+      notify(`🍎 ${ITEMS[td.fruit].emoji} ${ITEMS[td.fruit].name} ${cnt}개!`);
+      refreshTile(ft.x,ft.y); saveState(); updateUI();
+    }
+  }
+}
+
+// ─── 대화 시스템 ─────────────────────────────────────────────
+function talkTo(vi){
+  dialogueOpen=true;
+  gs.talked_to[vi.id]=(gs.talked_to[vi.id]||0)+1;
+  // AI 기반 대화 생성
+  const aiLine=npcPlayerInteract(vi.id);
+  const st=npcState[vi.id];
+  const displayLine=aiLine ? aiLine.replace(vi.name+': ','') : vi.dialogues[0];
+
+  // 친밀도에 따른 선택지 분기
+  const friendship=st.friendship;
+  const choices=[];
+  if(friendship>=5 && st.memory.learnedPhrases.length>0){
+    const shared=st.memory.learnedPhrases[Math.floor(Math.random()*st.memory.learnedPhrases.length)];
+    choices.push({text:'다른 주민한테서 들은 거 있어?', action:()=>{
+      showDialogue(vi.name, `${vi.emoji} 응! "${shared}" 이런 말도 있더라고!`,
+        [{text:'오오~', action:closeDialogue}]);
+    }});
+  }
+  if(friendship>=2){
+    choices.push({text:'요즘 어때?', action:()=>{
+      const hour=new Date().getHours();
+      const mood=hour<12?'아침부터 기운 넘쳐!':hour<18?'오후가 최고야~':'저녁은 여유롭지~';
+      showDialogue(vi.name, `${vi.emoji} ${mood} 너는?`,
+        [{text:'나도 좋아!', action:closeDialogue}]);
+    }});
+  }
+  choices.push({text:'무슨 일 있어?', action:()=>{
+    // 시나리오 랜덤 선택
+    const rumours=[
+      '아, 오늘 해변에서 이상한 물건을 봤어!',
+      '마을 광장에 새 조각상이 생긴다는 소문이 있어!',
+      '너굴이 새 상품 들어온다고 하던데?',
+      `${VILLAGERS.find(v=>v.id!==vi.id)?.name||'옆집'}이(가) 요즘 뭔가 이상하대...`,
+    ];
+    showDialogue(vi.name, `${vi.emoji} ${rumours[Math.floor(Math.random()*rumours.length)]}`,
+      [{text:'그렇구나!', action:closeDialogue}]);
+  }});
+  choices.push({text:'잘 있어!', action:closeDialogue});
+
+  showDialogue(vi.name, vi.emoji+' '+displayLine, choices);
+  if(Object.keys(gs.talked_to).length>=VILLAGERS.length) checkMilestone('talk_all');
+}
+
+function showDialogue(name, text, choices){
+  const dlg=document.getElementById('dialogue');
+  dlg.style.display='block';
+  document.getElementById('dlg-name').textContent=name;
+  document.getElementById('dlg-text').textContent=text;
+  const ch=document.getElementById('dlg-choices');
+  ch.innerHTML='';
+  (choices||[]).forEach(c=>{
+    const btn=document.createElement('button');
+    btn.className='choice-btn';
+    btn.textContent=c.text;
+    btn.onclick=()=>c.action();
+    ch.appendChild(btn);
+  });
+  playSound('talk');
+}
+function closeDialogue(){
+  dialogueOpen=false;
+  document.getElementById('dialogue').style.display='none';
+}
+
+// ─── 상점 시스템 ─────────────────────────────────────────────
+let shopMode='buy';
+const SHOP_CATALOG = [
+  {id:'seed_flower',qty:5},{id:'seed_tree',qty:3},{id:'medicine',qty:3},
+  {id:'furniture1',qty:1},{id:'furniture2',qty:1},{id:'furniture3',qty:1},
+  {id:'shovel_item',qty:1},{id:'axe_item',qty:1},{id:'rod_item',qty:1},{id:'net_item',qty:1},
+];
+
+function openShop(){
+  togglePanel('shop');
+  shopTab('buy');
+}
+function shopTab(mode){
+  shopMode=mode;
+  const content=document.getElementById('shop-content');
+  if(mode==='buy'){
+    content.innerHTML=SHOP_CATALOG.map(c=>{
+      const item=ITEMS[c.id];
+      return `<div class="shop-item" onclick="buyItem('${c.id}')">
+        <span style="font-size:20px">${item.emoji}</span>
+        <span class="sname">${item.name}</span>
+        <span class="sprice">🔔${item.price.toLocaleString()}</span>
+      </div>`;
+    }).join('');
+  } else {
+    // 판매 가능 아이템
+    const items=Object.entries(gs.inventory).filter(([k,v])=>v>0&&ITEMS[k]&&ITEMS[k].sell>0);
+    if(!items.length){content.innerHTML='<div style="color:#aaa;padding:20px;text-align:center">판매할 물품이 없어요</div>';return;}
+    content.innerHTML=items.map(([k,qty])=>{
+      const item=ITEMS[k];
+      return `<div class="shop-item" onclick="sellItem('${k}')">
+        <span style="font-size:20px">${item.emoji}</span>
+        <span class="sname">${item.name} x${qty}</span>
+        <span class="sprice">🔔${item.sell.toLocaleString()}/개</span>
+      </div>`;
+    }).join('');
+  }
+}
+function buyItem(id){
+  const item=ITEMS[id];
+  if(gs.bells<item.price){notify('🔔 종이 부족해요!');return;}
+  gs.bells-=item.price;
+  addItem(id,1);
+  notify(`🛒 ${item.emoji} ${item.name} 구입!`);
+  saveState(); updateUI(); shopTab(shopMode);
+}
+function sellItem(id){
+  const item=ITEMS[id];
+  if(!gs.inventory[id]||gs.inventory[id]<1){return;}
+  gs.inventory[id]--;
+  if(gs.inventory[id]<=0) delete gs.inventory[id];
+  gs.bells+=item.sell;
+  gs.total_sold+=item.sell;
+  notify(`💰 ${item.emoji} ${item.name} 판매! +🔔${item.sell.toLocaleString()}`);
+  checkMilestone('first_sell');
+  if(gs.bells>=10000) checkMilestone('bells_10k');
+  saveState(); updateUI(); shopTab(shopMode);
+}
+
+// ─── 박물관 ──────────────────────────────────────────────────
+function openMuseum(){
+  togglePanel('museum');
+  renderMuseum();
+}
+function renderMuseum(){
+  const content=document.getElementById('museum-content');
+  let html='';
+  const cats=[
+    {key:'fish',  label:'🐟 물고기',  pool:FISH_POOL},
+    {key:'bug',   label:'🦋 벌레',    pool:BUG_POOL},
+    {key:'fossil',label:'💀 화석',    pool:FOSSIL_POOL},
+  ];
+  cats.forEach(({key,label,pool})=>{
+    const donated=Object.keys(gs.museum[key]).length;
+    html+=`<div class="museum-section"><h3>${label} (${donated}/${pool.length})</h3>
+      <div class="museum-grid">${pool.map(id=>{
+        const donated2=gs.museum[key][id];
+        return `<div class="mslot ${donated2?'donated':'empty'}" title="${ITEMS[id].name}${donated2?'(기증됨)':''}" onclick="donateItem('${key}','${id}')">
+          <span>${ITEMS[id].emoji}</span></div>`;
+      }).join('')}</div></div>`;
+  });
+  html+=`<div style="padding:10px;background:#f5f0e8;border-radius:10px;margin-top:10px;font-size:12px;color:#7a5c2e">
+    <b>블래더스:</b> 기증해 주신 것을 고이 모시겠습니다... 호~🦉
+  </div>`;
+  content.innerHTML=html;
+}
+function donateItem(cat, id){
+  if(gs.museum[cat][id]){ notify(`이미 기증된 ${ITEMS[id].name}이에요!`); return; }
+  if(!gs.inventory[id]||gs.inventory[id]<1){ notify(`${ITEMS[id].name}을(를) 갖고 있지 않아요.`); return; }
+  gs.inventory[id]--;
+  if(gs.inventory[id]<=0) delete gs.inventory[id];
+  gs.museum[cat][id]=true;
+  notify(`🦉 ${ITEMS[id].emoji} ${ITEMS[id].name} 기증 완료!`);
+  addMiles(200);
+  if(cat==='fish'&&Object.keys(gs.museum.fish).length>=1) checkMilestone('donate_fish');
+  if(cat==='bug' &&Object.keys(gs.museum.bug).length>=1)  checkMilestone('donate_bug');
+  if(cat==='fossil'&&Object.keys(gs.museum.fossil).length>=1) checkMilestone('donate_fossil');
+  saveState(); updateUI(); renderMuseum();
+  playSound('donate');
+}
+
+// ─── 너굴 HQ ─────────────────────────────────────────────────
+function openNookHQ(){
+  togglePanel('nook');
+  renderNookHQ();
+}
+function renderNookHQ(){
+  const content=document.getElementById('nook-content');
+  const debtStr=gs.nook_debt>0?`<div style="background:#fff3cd;border-radius:10px;padding:12px;margin-bottom:12px;font-size:13px">
+    <b>너굴:</b> 이주 빚이 🔔${gs.nook_debt.toLocaleString()} 남았어요!<br>
+    <button style="margin-top:8px;padding:6px 14px;border:none;border-radius:8px;background:#e6aa22;color:white;font-weight:800;cursor:pointer" onclick="payDebt()">빚 갚기 (현재 종: 🔔${gs.bells.toLocaleString()})</button>
+  </div>`:'<div style="background:#d4edda;border-radius:10px;padding:12px;margin-bottom:12px;font-size:13px">✅ 빚을 다 갚았어요!</div>';
+
+  const miles=MILE_ACHIEVEMENTS.map(a=>{
+    const done=gs.achievements[a.id];
+    return `<div style="display:flex;align-items:center;gap:8px;padding:7px;border-radius:10px;background:${done?'rgba(126,200,128,.2)':'rgba(0,0,0,.04)'};margin-bottom:4px;opacity:${done?1:.6}">
+      <span style="font-size:18px">${a.emoji}</span>
+      <span style="flex:1;font-size:12px;font-weight:700;color:#3b3028">${a.name}</span>
+      <span style="font-size:11px;color:#e6aa22;font-weight:800">${done?'✅':''} 🦋${a.miles}</span>
+    </div>`;
+  }).join('');
+
+  content.innerHTML=`${debtStr}<h3 style="font-size:13px;font-weight:800;color:#3b3028;margin-bottom:8px">🦋 너굴 마일 업적</h3>${miles}`;
+}
+
+function payDebt(){
+  const pay=Math.min(gs.bells, gs.nook_debt);
+  if(pay<=0){notify('종이 없어요!');return;}
+  gs.bells-=pay; gs.nook_debt-=pay;
+  if(gs.nook_debt<=0){
+    gs.nook_debt=0;
+    notify('🎉 빚을 다 갚았어요! 섬이 당신 것이에요!');
+    addMiles(1000);
+    // 집 업그레이드
+    if(gs.house_level===0){ gs.house_level=1; refreshTile(24,34); notify('🏠 텐트가 집이 됐어요!');}
+  } else {
+    notify(`💰 🔔${pay.toLocaleString()} 납부! 남은 빚: 🔔${gs.nook_debt.toLocaleString()}`);
+  }
+  saveState(); updateUI(); renderNookHQ();
+}
+
+// ─── 집 메뉴 ──────────────────────────────────────────────────
+function openHouseMenu(){
+  const costs=[0,98000,348000,498000];
+  const names=['텐트→집','집→증축','증축→2층'];
+  const lv=gs.house_level;
+  if(lv>=3){notify('🏠 더 이상 확장할 수 없어요!');return;}
+  const cost=costs[lv+1]||0;
+  showDialogue('너굴',
+    `🏠 집을 확장할까요? 🔔${cost.toLocaleString()} 이 필요해요.`,
+    [
+      {text:`확장! (🔔${cost.toLocaleString()})`, action:()=>{
+        if(gs.bells<cost){notify('종이 부족해요!');closeDialogue();return;}
+        gs.bells-=cost; gs.house_level++;
+        refreshTile(24,34);
+        notify(`🏠 집이 확장됐어요! (레벨 ${gs.house_level})`);
+        saveState(); updateUI(); closeDialogue();
+      }},
+      {text:'나중에', action:closeDialogue},
+    ]
+  );
+}
+
+// ─── 인벤토리 ─────────────────────────────────────────────────
+function addItem(id, qty){
+  if(!gs.inventory[id]) gs.inventory[id]=0;
+  gs.inventory[id]+=qty;
+  updateUI();
+}
+function renderInventory(){
+  document.getElementById('inv-bells').textContent=gs.bells.toLocaleString();
+  document.getElementById('inv-miles').textContent=gs.miles.toLocaleString();
+  const grid=document.getElementById('inv-grid');
+  const items=Object.entries(gs.inventory).filter(([k,v])=>v>0&&ITEMS[k]);
+  if(!items.length){grid.innerHTML='<div style="color:#aaa;grid-column:1/-1;text-align:center;padding:20px">인벤토리가 비었어요</div>';return;}
+  grid.innerHTML=items.map(([k,qty])=>{
+    const item=ITEMS[k];
+    return `<div class="inv-item" onclick="showItemMenu('${k}')">
+      <div style="font-size:22px">${item.emoji}</div>
+      <div class="iname">${item.name}</div>
+      <div class="iprice">x${qty}</div>
+    </div>`;
+  }).join('');
+}
+function showItemMenu(id){
+  const item=ITEMS[id];
+  const choices=[{text:'닫기', action:closeDialogue}];
+  if(item.sell>0) choices.unshift({text:`팔기 (🔔${item.sell})`, action:()=>{sellItem(id);closeDialogue();}});
+  if(item.cat==='fossil'||item.cat==='fish'||item.cat==='bug'){
+    choices.unshift({text:'박물관에 기증', action:()=>{donateItem(item.cat,id);closeDialogue();}});
+  }
+  showDialogue(item.name, `${item.emoji} ${item.name} x${gs.inventory[id]||0}`, choices);
+}
+
+// ─── 패널 토글 ───────────────────────────────────────────────
+const openPanels=new Set();
+function togglePanel(id){
+  const el=document.getElementById('panel-'+id);
+  if(!el) return;
+  const isOpen=openPanels.has(id);
+  closeAllPanels();
+  if(!isOpen){
+    el.classList.add('show');
+    openPanels.add(id);
+    if(id==='inv') renderInventory();
+    if(id==='museum') renderMuseum();
+    if(id==='nook') renderNookHQ();
+    if(id==='shop') shopTab('buy');
+  }
+}
+function closeAllPanels(){
+  document.querySelectorAll('.panel-overlay').forEach(p=>p.classList.remove('show'));
+  openPanels.clear();
+}
+
+// ─── 너굴 마일 업적 ─────────────────────────────────────────
+function checkMilestone(id){
+  if(gs.achievements[id]) return;
+  const a=MILE_ACHIEVEMENTS.find(m=>m.id===id);
+  if(!a) return;
+  gs.achievements[id]=true;
+  addMiles(a.miles);
+  notify(`🦋 업적 달성! "${a.name}" +${a.miles}마일`);
+}
+function addMiles(n){
+  gs.miles+=n;
+  document.getElementById('miles-val').textContent=gs.miles.toLocaleString();
+}
+
+// ─── 알림 ───────────────────────────────────────────────────
+function notify(msg){
+  const area=document.getElementById('notif-area');
+  const el=document.createElement('div');
+  el.className='notif';
+  el.textContent=msg;
+  area.appendChild(el);
+  setTimeout(()=>el.remove(),3200);
+}
+const notif=notify; // alias
+
+// ─── 파티클 효과 ─────────────────────────────────────────────
+const particles3d=[];
+function spawnParticles(wx,wy,wz,emoji,count){
+  for(let i=0;i<count;i++){
+    const g=new THREE.Group();
+    g.position.set(wx+(Math.random()-.5),wy+Math.random()*0.5,wz+(Math.random()-.5));
+    // 파티클을 sprite처럼: 작은 구체로 표현
+    const c2=['💛','💚','🩷','💙','🤍'][i%5];
+    const col2=[0xffee44,0x44ee44,0xff88bb,0x44aaff,0xffffff][i%5];
+    const sp=mesh(new THREE.SphereGeometry(0.06,5,4),col2,false);
+    g.add(sp);
+    g.userData={vy:0.04+Math.random()*0.06, life:60};
+    scene.add(g);
+    particles3d.push(g);
+  }
+}
+function updateParticles(){
+  for(let i=particles3d.length-1;i>=0;i--){
+    const p=particles3d[i];
+    p.userData.life--;
+    p.position.y+=p.userData.vy;
+    p.userData.vy-=0.002;
+    p.children.forEach(c=>{if(c.material){c.material.opacity=p.userData.life/60;c.material.transparent=true;}});
+    if(p.userData.life<=0){scene.remove(p);disposeMesh(p);particles3d.splice(i,1);}
+  }
+}
+
+// ─── 낮/밤 & 날씨 시스템 ────────────────────────────────────
+function updateTimeSystem(){
+  const now=new Date();
+  const h=now.getHours(), m=now.getMinutes();
+  // 시계
+  document.getElementById('time-val').textContent=
+    String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+  document.getElementById('date-val').textContent=
+    `${now.getMonth()+1}/${now.getDate()}`;
+  // 계절
+  const mo=now.getMonth();
+  const seasons=[{n:'겨울',e:'❄️'},{n:'겨울',e:'❄️'},{n:'봄',e:'🌸'},
+    {n:'봄',e:'🌸'},{n:'봄',e:'🌸'},{n:'여름',e:'☀️'},
+    {n:'여름',e:'☀️'},{n:'여름',e:'☀️'},{n:'가을',e:'🍂'},
+    {n:'가을',e:'🍂'},{n:'가을',e:'🍂'},{n:'겨울',e:'❄️'}];
+  const s=seasons[mo];
+  document.getElementById('season-name').textContent=s.n;
+  document.getElementById('season-icon').textContent=s.e;
+  // 조명
+  let ambI, sunI, sunC, ambC, fogC, skyC;
+  if(h>=6&&h<8){         // 새벽
+    const p=(h-6+m/60)/2;
+    ambI=0.25+p*0.2; sunI=0.3+p*0.5; sunC=0xffbb88; ambC=0xffccaa;
+    fogC=0xffbbaa; skyC=0xff8866;
+  } else if(h>=8&&h<17){ // 낮
+    ambI=0.55; sunI=1.0; sunC=0xfff4d0; ambC=0xfff4e8;
+    fogC=0x7ec8e3; skyC=0x7ec8e3;
+  } else if(h>=17&&h<20){// 저녁
+    const p=(h-17+m/60)/3;
+    ambI=0.55-p*0.25; sunI=1.0-p*0.6; sunC=0xff8844; ambC=0xffaa88;
+    fogC=0xee9966; skyC=0xee7744;
+  } else {               // 밤
+    ambI=0.42; sunI=0.18; sunC=0x7799dd; ambC=0x5a6a99;
+    fogC=0x1e2b45; skyC=0x12182e;
+  }
+  ambLight.intensity=ambI;
+  sunLight.intensity=sunI;
+  sunLight.color.setHex(sunC);
+  ambLight.color.setHex(ambC);
+  scene.fog=new THREE.Fog(fogC,70,160);
+  renderer.setClearColor(skyC);
+  moonLight.intensity=h>=20||h<6?0.15:0;
+  // 시계 아이콘
+  document.getElementById('time-icon').textContent=
+    h>=6&&h<18?'☀️':h>=18&&h<20?'🌅':'🌙';
+}
+
+// ─── UI 업데이트 ─────────────────────────────────────────────
+function updateUI(){
+  document.getElementById('bells-val').textContent=gs.bells.toLocaleString();
+  document.getElementById('miles-val').textContent=gs.miles.toLocaleString();
+  // 아이템 바 (최근 5개)
+  const bar=document.getElementById('itembar');
+  const items=Object.entries(gs.inventory).filter(([k,v])=>v>0&&ITEMS[k]).slice(0,8);
+  bar.innerHTML=items.map(([k,qty])=>{
+    return `<div class="item-slot" onclick="showItemMenu('${k}')">
+      <span>${ITEMS[k].emoji}</span>
+      <span class="qty">${qty}</span>
+    </div>`;
+  }).join('');
+  if(!items.length) bar.innerHTML='<div style="color:#bbb;font-size:12px;padding:4px 8px">주머니 비어있음</div>';
+}
+
+// ─── Web Audio 사운드 ────────────────────────────────────────
+let audioCtx=null;
+function getAudio(){
+  if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  return audioCtx;
+}
+function playSound(type){
+  try{
+    const ac=getAudio();
+    const osc=ac.createOscillator();
+    const gain=ac.createGain();
+    osc.connect(gain); gain.connect(ac.destination);
+    const now=ac.currentTime;
+    const configs={
+      step:    {f:440,  type:'sine',  vol:0.04, dur:0.06},
+      cast:    {f:660,  type:'sine',  vol:0.12, dur:0.3},
+      bite:    {f:880,  type:'sine',  vol:0.15, dur:0.2},
+      reel:    {f:550,  type:'sine',  vol:0.1,  dur:0.15},
+      miss:    {f:220,  type:'sine',  vol:0.1,  dur:0.2},
+      catch:   {f:1047, type:'sine',  vol:0.18, dur:0.4},
+      dig:     {f:330,  type:'square',vol:0.1,  dur:0.2},
+      chop:    {f:220,  type:'square',vol:0.12, dur:0.15},
+      water:   {f:660,  type:'sine',  vol:0.08, dur:0.25},
+      talk:    {f:550,  type:'sine',  vol:0.08, dur:0.12},
+      donate:  {f:880,  type:'sine',  vol:0.2,  dur:0.5},
+      buy:     {f:770,  type:'sine',  vol:0.12, dur:0.25},
+    };
+    const c=configs[type]||configs.step;
+    osc.type=c.type; osc.frequency.value=c.f;
+    gain.gain.setValueAtTime(c.vol, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now+c.dur);
+    osc.start(now); osc.stop(now+c.dur);
+    if(type==='catch'||type==='donate'){
+      // 화음 추가
+      [1.25,1.5].forEach(ratio=>{
+        const o2=ac.createOscillator(), g2=ac.createGain();
+        o2.connect(g2); g2.connect(ac.destination);
+        o2.type='sine'; o2.frequency.value=c.f*ratio;
+        g2.gain.setValueAtTime(c.vol*0.5,now);
+        g2.gain.exponentialRampToValueAtTime(0.001,now+c.dur);
+        o2.start(now+0.05); o2.stop(now+c.dur+0.1);
+      });
+    }
+  }catch(e){}
+}
+// 배경 음악 (AC 스타일 단순 멜로디)
+let bgPlaying=false;
+function playBGM(){
+  if(bgPlaying) return;
+  bgPlaying=true;
+  const notes=[523,587,659,784,880,784,659,523,440,523,587,659,523];
+  let i=0;
+  function playNote(){
+    if(!bgPlaying) return;
+    try{
+      const ac=getAudio();
+      const osc=ac.createOscillator();
+      const gain=ac.createGain();
+      osc.connect(gain); gain.connect(ac.destination);
+      const now=ac.currentTime;
+      osc.type='sine'; osc.frequency.value=notes[i%notes.length];
+      gain.gain.setValueAtTime(0.06,now);
+      gain.gain.exponentialRampToValueAtTime(0.001,now+0.45);
+      osc.start(now); osc.stop(now+0.5);
+      i++;
+    }catch(e){}
+    setTimeout(playNote,600);
+  }
+  setTimeout(playNote,1000);
+}
+document.addEventListener('click',playBGM,{once:true});
+document.addEventListener('keydown',playBGM,{once:true});
+
+// ─── 멀티플레이 시스템 (PeerJS WebRTC) ───────────────────────
+const MP = {
+  peer:null, myId:null, conn:null,
+  isHost:false, visitingMode:false,
+  remoteMesh:null, remoteLimbs:{}, remoteTarget:null,
+  syncTimer:0,
+};
+
+function initMultiplayer(){
+  try {
+    MP.peer = new Peer(undefined,{debug:0});
+    MP.peer.on('open', id=>{
+      MP.myId=id;
+      const el=document.getElementById('mp-code-display');
+      if(el) el.textContent=id;
+      mpSetStatus('✅ 연결됨! 코드를 친구에게 공유하세요.');
+    });
+    MP.peer.on('connection', conn=>{
+      // 누군가 우리 섬에 방문
+      MP.isHost=true;
+      setupConnection(conn);
+      mpSetStatus('🚀 친구가 방문 중...');
+    });
+    MP.peer.on('error', e=>{
+      mpSetStatus('❌ 연결 오류: '+e.type);
+    });
+    MP.peer.on('disconnected',()=>{ mpSetStatus('🔌 PeerJS 서버와 연결 끊김'); });
+  } catch(e) {
+    mpSetStatus('❌ PeerJS 초기화 실패 (네트워크 확인)');
+  }
+}
+
+function mpSetStatus(msg){
+  const el=document.getElementById('mp-status');
+  if(el) el.innerHTML=msg;
+}
+
+function copyIslandCode(){
+  if(!MP.myId){ notify('아직 코드가 준비되지 않았어요!'); return; }
+  navigator.clipboard?.writeText(MP.myId).catch(()=>{});
+  notify('📋 섬 코드가 복사되었어요!');
+}
+
+function joinFriendIsland(){
+  const inp=document.getElementById('mp-join-input');
+  const hostId=inp?.value?.trim();
+  if(!hostId){ notify('섬 코드를 입력해 주세요!'); return; }
+  if(!MP.peer){ notify('멀티 연결이 초기화되지 않았어요.'); return; }
+  if(MP.conn){ MP.conn.close(); }
+  mpSetStatus('⏳ 연결 중...');
+  const conn=MP.peer.connect(hostId,{reliable:true});
+  MP.isHost=false;
+  setupConnection(conn);
+}
+
+function disconnectMP(){
+  if(MP.conn) MP.conn.close();
+  cleanupRemote();
+  mpSetStatus('👋 연결이 종료되었어요.');
+  document.getElementById('mp-disc-btn').style.display='none';
+  notify('👋 섬을 떠났어요!');
+}
+
+function setupConnection(conn){
+  MP.conn=conn;
+  conn.on('open',()=>{
+    document.getElementById('mp-disc-btn').style.display='block';
+    if(MP.isHost){
+      // 호스트: 월드 데이터 전송
+      const worldData=Array.from(world);
+      conn.send({type:'world',
+        world:worldData,
+        trees:gs.world_trees,
+        flowers:gs.world_flowers,
+        digs:gs.world_dig_spots,
+        playerX:playerPos.x, playerZ:playerPos.z,
+      });
+      mpSetStatus('🏝️ 친구가 도착했어요! <span class="mp-badge">ONLINE</span>');
+      notify('🌍 친구가 섬에 도착했어요!');
+    }
+    togglePanel('mp');
+  });
+  conn.on('data', handleMPData);
+  conn.on('close',()=>{
+    cleanupRemote();
+    mpSetStatus('👋 상대방이 연결을 끊었어요.');
+    document.getElementById('mp-disc-btn').style.display='none';
+    notify('👋 친구가 섬을 떠났어요...');
+  });
+  conn.on('error', e=>{ mpSetStatus('❌ 연결 에러: '+e); });
+}
+
+function handleMPData(data){
+  if(data.type==='world'){
+    // 방문자: 호스트 섬으로 전환
+    MP.visitingMode=true;
+    for(let i=0;i<data.world.length;i++) world[i]=data.world[i];
+    gs.world_trees=data.trees||{};
+    gs.world_flowers=data.flowers||{};
+    gs.world_dig_spots=data.digs||{};
+    // 씬 재구성
+    tileMeshes.forEach((m,k)=>{scene.remove(m);disposeMesh(m);});
+    tileMeshes.clear();
+    buildGround();
+    // 방문자 위치: 도착 지점 근처
+    playerPos.x=(data.playerX||27*CS)+CS*2;
+    playerPos.z=(data.playerZ||27*CS);
+    mpSetStatus('🏝️ 친구의 섬 방문 중! <span class="mp-badge">ONLINE</span>');
+    notify('✈️ 친구의 섬에 도착했어요!');
+    // 방문자는 호스트에게 위치 즉시 전송
+    sendPosition();
+  } else if(data.type==='pos'){
+    // 원격 플레이어 위치 업데이트
+    if(!MP.remoteMesh){
+      MP.remoteMesh=buildRemotePlayer();
+      scene.add(MP.remoteMesh);
+    }
+    MP.remoteTarget={x:data.x, z:data.z, dir:data.dir, moving:data.moving};
+  } else if(data.type==='chat'){
+    notify('💬 '+data.msg);
+  }
+}
+
+function buildRemotePlayer(){
+  const limbs={};
+  // 다른 헤어색(보라)으로 구분
+  const g=buildCharacter(0xfde0b8, 0xcc55aa, 0x5a2a6a, 0x882299, 0x3a2a1a, limbs);
+  // 이름표
+  MP.remoteLimbs=limbs;
+  return g;
+}
+
+function cleanupRemote(){
+  if(MP.remoteMesh){ scene.remove(MP.remoteMesh); disposeMesh(MP.remoteMesh); MP.remoteMesh=null; }
+  MP.remoteTarget=null;
+  if(MP.visitingMode){
+    // 자기 섬으로 복원
+    MP.visitingMode=false;
+    generateWorld();
+    tileMeshes.forEach((m,k)=>{scene.remove(m);disposeMesh(m);});
+    tileMeshes.clear();
+    buildGround();
+    playerPos.x=27*CS; playerPos.z=27*CS;
+    notify('🏠 내 섬으로 돌아왔어요!');
+  }
+}
+
+function sendPosition(){
+  if(!MP.conn||!MP.conn.open) return;
+  MP.conn.send({type:'pos', x:playerPos.x, z:playerPos.z, dir:playerMesh?.rotation.y??0, moving:playerMoving});
+}
+
+function updateMultiplayer(dt){
+  if(!MP.remoteMesh||!MP.remoteTarget) return;
+  const t=MP.remoteTarget;
+  // 위치 보간
+  MP.remoteMesh.position.x+=(t.x-MP.remoteMesh.position.x)*0.22;
+  MP.remoteMesh.position.z+=(t.z-MP.remoteMesh.position.z)*0.22;
+  const ftx=Math.round(MP.remoteMesh.position.x/CS);
+  const ftz=Math.round(MP.remoteMesh.position.z/CS);
+  MP.remoteMesh.position.y=tileH(ftx,ftz);
+  MP.remoteMesh.rotation.y=t.dir;
+  // 팔다리 애니메이션
+  animateLimbs(MP.remoteLimbs, t.moving, 2.5);
+}
+
+// ─── 메인 게임 루프 ──────────────────────────────────────────
+let lastTime=0;
+let tick=0;
+function gameLoop(ts){
+  requestAnimationFrame(gameLoop);
+  const dt=Math.min((ts-lastTime)/16.67, 3);
+  lastTime=ts; tick++;
+
+  updatePlayer(dt);
+  updateNPCs(dt);
+  updateFishing(dt);
+  updateParticles();
+  updateCamera();
+  updateMultiplayer(dt);
+
+  // 매 60틱마다
+  if(tick%60===0) updateTimeSystem();
+  // 매 5분마다 저장
+  if(tick%(60*60*5)===0) saveState();
+  // 멀티 위치 동기화 (매 6틱 ≒ 100ms)
+  if(tick%6===0) sendPosition();
+
+  renderer.render(scene, camera);
+}
+
+// ─── 부팅 ────────────────────────────────────────────────────
+function boot(){
+  gs = loadState();
+  generateWorld();
+
+  // 씬 배경
+  scene.background=new THREE.Color(0x7ec8e3);
+  scene.fog=new THREE.Fog(0x7ec8e3, 55, 120);
+
+  buildGround();
+  buildPlayer();
+  buildFacingMarker();
+  VILLAGERS.forEach(v=>buildNPC(v));
+
+  // 발굴 지점 마커 갱신
+  Object.entries(gs.world_dig_spots).forEach(([key,ds])=>{
+    if(!ds.found){
+      const [dx,dy]=key.split(',').map(Number);
+      setTile(dx,dy,T.DIG_SPOT);
+      refreshTile(dx,dy);
+    }
+  });
+
+  // 플레이어 시작 위치 (강 동쪽 잔디)
+  playerPos.x=27*CS; playerPos.z=27*CS;
+
+  updateTimeSystem();
+  updateUI();
+  initMobileControls();
+  initMultiplayer();
+  notify('🌿 섬에 오신 것을 환영합니다!');
+  setTimeout(()=>notify('📱 모바일: 왼쪽 조이스틱으로 이동, 오른쪽 버튼으로 행동!'),3000);
+  setTimeout(()=>notify('🌍 멀티플레이: 툴바 🌍 버튼 → 섬 코드 공유!'),6000);
+
+  requestAnimationFrame(gameLoop);
+}
+
+boot();
+</script>
+</body>
+</html>
