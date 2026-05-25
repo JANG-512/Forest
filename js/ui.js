@@ -8,64 +8,107 @@ import { saveState, addItem, addMiles, checkMilestone } from './state.js';
 import { refreshTile } from './world.js';
 import { mesh, disposeMesh } from './renderer.js';
 import { npcPlayerInteract } from './npc.js';
+import { ApiClient, NPC_PROFILES } from './api.js';
 
 // ─── 도구 선택 ───────────────────────────────────────────────
 export function selectTool(t){
-  G.currentTool=t;
-  document.querySelectorAll('.tool-btn').forEach(b=>b.classList.toggle('active',b.dataset.tool===t));
+  if (G.currentTool === t) {
+    G.currentTool = null;
+  } else {
+    G.currentTool = t;
+  }
+  document.querySelectorAll('.tool-btn').forEach(b=>b.classList.toggle('active',b.dataset.tool===G.currentTool));
+  if(typeof window.updatePlayerToolMesh === 'function'){
+    window.updatePlayerToolMesh();
+  }
 }
 
 // ─── 대화 시스템 ─────────────────────────────────────────────
+let currentNpcId = null;
+let currentNpcVi = null;
+let typewriterTimer = null;
+
 export function talkTo(vi){
   G.dialogueOpen=true;
   const gs=G.gs;
   gs.talked_to[vi.id]=(gs.talked_to[vi.id]||0)+1;
-  // AI 기반 대화 생성
-  const aiLine=npcPlayerInteract(vi.id);
-  const st=G.npcState[vi.id];
-  const displayLine=aiLine ? aiLine.replace(vi.name+': ','') : vi.dialogues[0];
+  currentNpcId = vi.id;
+  currentNpcVi = vi;
 
-  // 친밀도에 따른 선택지 분기
-  const friendship=st?st.friendship:0;
-  const choices=[];
-  if(friendship>=5 && st.memory.learnedPhrases.length>0){
-    const shared=st.memory.learnedPhrases[Math.floor(Math.random()*st.memory.learnedPhrases.length)];
-    choices.push({text:'다른 주민한테서 들은 거 있어?', action:()=>{
-      showDialogue(vi.name, `${vi.emoji} 응! "${shared}" 이런 말도 있더라고!`,
-        [{text:'오오~', action:closeDialogue}]);
-    }});
-  }
-  if(friendship>=2){
-    choices.push({text:'요즘 어때?', action:()=>{
-      const hour=new Date().getHours();
-      const mood=hour<12?'아침부터 기운 넘쳐!':hour<18?'오후가 최고야~':'저녁은 여유롭지~';
-      showDialogue(vi.name, `${vi.emoji} ${mood} 너는?`,
-        [{text:'나도 좋아!', action:closeDialogue}]);
-    }});
-  }
-  choices.push({text:'무슨 일 있어?', action:()=>{
-    const rumours=[
-      '아, 오늘 해변에서 이상한 물건을 봤어!',
-      '마을 광장에 새 조각상이 생긴다는 소문이 있어!',
-      '마을 상점에 새 상품 들어온다고 하던데?',
-      `${VILLAGERS.find(v=>v.id!==vi.id)?.name||'옆집'}이(가) 요즘 뭔가 이상하대...`,
-    ];
-    showDialogue(vi.name, `${vi.emoji} ${rumours[Math.floor(Math.random()*rumours.length)]}`,
-      [{text:'그렇구나!', action:closeDialogue}]);
-  }});
-  choices.push({text:'잘 있어!', action:closeDialogue});
+  // 디버그 대시보드 켜기
+  const db = document.getElementById('debug-dashboard');
+  if(db) db.style.display = 'block';
 
-  showDialogue(vi.name, vi.emoji+' '+displayLine, choices);
+  // 디버그 대시보드 이름, 설명 초기화
+  const nameEl = document.getElementById('debug-npc-name');
+  const descEl = document.getElementById('debug-npc-desc');
+  if(nameEl) nameEl.textContent = `${vi.emoji} ${vi.name}`;
+  if(descEl) descEl.textContent = NPC_PROFILES[vi.id]?.desc || "숲속의 다정한 주민";
+
+  // 만약 npcState에 감정 수치가 안 들어가 있다면 초기화해준다
+  const st = G.npcState[vi.id];
+  if(st) {
+    if(!st.emotionState) st.emotionState = 'neutral';
+    if(!st.emotionValues) {
+      st.emotionValues = { happiness: 50, sadness: 10, anger: 0, stress: 15, loneliness: 20, excitement: 20 };
+    }
+    if(!st.relationship) {
+      st.relationship = { friendship: st.friendship || 0, trust: 0, affection: 0, conflict: 0 };
+    }
+  }
+
+  // 디버그 보드 수치 동기화
+  syncDebugBoard(vi.id);
+
+  // 기본 주민의 첫인사 대사를 뿌림
+  const defaultGreeting = vi.dialogues[0] || "안녕! 오늘 무슨 재미있는 일 있어?";
+  
+  // 첫인사는 로컬 시뮬레이션 없이 그냥 띄움
+  showDialogue(vi.name, vi.emoji + ' ' + defaultGreeting, [], vi.id);
+
+  // 채팅 인풋 필드 클리어 및 포커스
+  const chatInput = document.getElementById('dlg-chat-input');
+  if(chatInput) {
+    chatInput.value = '';
+    chatInput.disabled = false;
+    setTimeout(() => chatInput.focus(), 100);
+  }
+  const sendBtn = document.getElementById('dlg-chat-send-btn');
+  if(sendBtn) sendBtn.disabled = false;
+
   if(Object.keys(gs.talked_to).length>=VILLAGERS.length) checkMilestone('talk_all');
 }
 
-export function showDialogue(name, text, choices){
+function runTypewriterEffect(element, text, callback) {
+  if (typewriterTimer) clearInterval(typewriterTimer);
+  
+  element.textContent = '';
+  let index = 0;
+  
+  typewriterTimer = setInterval(() => {
+    if (index < text.length) {
+      element.textContent += text.charAt(index);
+      index++;
+    } else {
+      clearInterval(typewriterTimer);
+      typewriterTimer = null;
+      if (callback) callback();
+    }
+  }, 35);
+}
+
+export function showDialogue(name, text, choices, npcId){
   const dlg=document.getElementById('dialogue');
   dlg.style.display='block';
   document.getElementById('dlg-name').textContent=name;
-  document.getElementById('dlg-text').textContent=text;
+  
+  const textEl = document.getElementById('dlg-text');
+  runTypewriterEffect(textEl, text);
+
   const ch=document.getElementById('dlg-choices');
   ch.innerHTML='';
+  
+  // 추가 선택지 버튼
   (choices||[]).forEach(c=>{
     const btn=document.createElement('button');
     btn.className='choice-btn';
@@ -73,11 +116,212 @@ export function showDialogue(name, text, choices){
     btn.onclick=()=>c.action();
     ch.appendChild(btn);
   });
+
+  // 대화 종료용 choice 버튼이 없을 때, "잘 있어!" 버튼 추가
+  if ((!choices || choices.length === 0) && npcId) {
+    const exitBtn = document.createElement('button');
+    exitBtn.className = 'choice-btn';
+    exitBtn.textContent = '잘 있어! 👋';
+    exitBtn.onclick = closeDialogue;
+    ch.appendChild(exitBtn);
+  }
+
+  const chatContainer = document.getElementById('dlg-chat-container');
+  if(chatContainer) {
+    chatContainer.style.display = 'flex';
+  }
+
   playSound('talk');
 }
+
 export function closeDialogue(){
   G.dialogueOpen=false;
   document.getElementById('dialogue').style.display='none';
+  const db = document.getElementById('debug-dashboard');
+  if(db) db.style.display='none';
+  if(typewriterTimer) {
+    clearInterval(typewriterTimer);
+    typewriterTimer = null;
+  }
+}
+
+async function handleSend() {
+  const chatInput = document.getElementById('dlg-chat-input');
+  const sendBtn = document.getElementById('dlg-chat-send-btn');
+  if (!chatInput || !currentNpcId) return;
+
+  const msg = chatInput.value.trim();
+  if (!msg) return;
+
+  // 전송 중 UI 비활성화
+  chatInput.disabled = true;
+  if(sendBtn) sendBtn.disabled = true;
+
+  const textEl = document.getElementById('dlg-text');
+  if(textEl) textEl.textContent = `${currentNpcVi.emoji} 생각 중...`;
+
+  try {
+    const playerId = "player_1";
+    const res = await ApiClient.talkToNpc(playerId, currentNpcId, msg);
+
+    const st = G.npcState[currentNpcId];
+    if(st && res) {
+      // 1. 감정 상태 및 수치 갱신
+      st.emotionState = res.emotion || 'neutral';
+      if(res.npc_state) {
+        st.emotionValues = {
+          happiness: res.npc_state.happiness ?? 50,
+          sadness: res.npc_state.sadness ?? 10,
+          anger: res.npc_state.anger ?? 0,
+          stress: res.npc_state.stress ?? 15,
+          loneliness: res.npc_state.loneliness ?? 20,
+          excitement: res.npc_state.excitement ?? 20
+        };
+      }
+      
+      // 2. 관계 수치 갱신
+      if(res.relationship_change) {
+        st.relationship.friendship += res.relationship_change.friendship ?? 0;
+        st.relationship.trust += res.relationship_change.trust ?? 0;
+        st.relationship.affection += res.relationship_change.affection ?? 0;
+        st.relationship.conflict += res.relationship_change.conflict ?? 0;
+        
+        G.gs.talked_to[currentNpcId] = st.relationship.friendship;
+      }
+
+      // 3. NPC 머리 위 에모지/이름표 변경
+      const emojiName = NPC_PROFILES[currentNpcId]?.emojis[st.emotionState] || currentNpcVi.emoji;
+      document.getElementById('dlg-name').textContent = `${currentNpcVi.name} ${emojiName}`;
+      
+      syncDebugBoard(currentNpcId, res.relationship_change);
+      
+      st.aiState = 'REACT';
+      st.stateTimer = 120; // 2초 리액션
+    }
+
+    if (res && res.reply) {
+      const emoji = NPC_PROFILES[currentNpcId]?.emojis[st.emotionState] || currentNpcVi.emoji;
+      runTypewriterEffect(textEl, emoji + ' ' + res.reply, () => {
+        chatInput.disabled = false;
+        if(sendBtn) sendBtn.disabled = false;
+        chatInput.value = '';
+        chatInput.focus();
+      });
+    }
+
+  } catch(e) {
+    console.error("대화 에러:", e);
+    if(textEl) textEl.textContent = "⚠️ 에러가 발생했습니다.";
+    chatInput.disabled = false;
+    if(sendBtn) sendBtn.disabled = false;
+  }
+}
+
+export function syncDebugBoard(npcId, relChange) {
+  const st = G.npcState[npcId];
+  if (!st) return;
+
+  const ev = st.emotionValues || { happiness: 50, sadness: 10, anger: 0, stress: 15, loneliness: 20, excitement: 20 };
+  const rel = st.relationship || { friendship: 0, trust: 0, affection: 0, conflict: 0 };
+
+  const keys = ['happiness', 'sadness', 'anger', 'stress', 'loneliness', 'excitement'];
+  keys.forEach(k => {
+    const valEl = document.getElementById(`stat-val-${k}`);
+    const barEl = document.getElementById(`stat-bar-${k}`);
+    const val = ev[k] !== undefined ? ev[k] : 0;
+    if (valEl) valEl.textContent = `${Math.round(val)}%`;
+    if (barEl) barEl.style.width = `${Math.max(0, Math.min(100, val))}%`;
+  });
+
+  const relKeys = ['friendship', 'trust', 'affection', 'conflict'];
+  relKeys.forEach(k => {
+    const el = document.getElementById(`rel-val-${k}`);
+    if (el) {
+      if (relChange) {
+        const delta = relChange[k] || 0;
+        const sign = delta > 0 ? '+' : '';
+        el.textContent = `${sign}${delta} (누적:${rel[k]})`;
+        el.style.color = delta > 0 ? '#3a9e5f' : delta < 0 ? '#c8443a' : '#777';
+      } else {
+        el.textContent = `${rel[k]}`;
+        el.style.color = '#3b3028';
+      }
+    }
+  });
+}
+
+function initAiUiBindings() {
+  const minBtn = document.getElementById('minimize-debug');
+  const dbContent = document.getElementById('debug-content');
+  if (minBtn && dbContent) {
+    minBtn.addEventListener('click', () => {
+      if (dbContent.style.display === 'none') {
+        dbContent.style.display = 'flex';
+        minBtn.textContent = '접기 [-]';
+      } else {
+        dbContent.style.display = 'none';
+        minBtn.textContent = '펴기 [+]';
+      }
+    });
+  }
+
+  const toggleBtn = document.getElementById('ai-toggle-btn');
+  const connBadge = document.getElementById('ai-conn-badge');
+  const urlInput = document.getElementById('ai-url-input');
+
+  if (toggleBtn && connBadge && urlInput) {
+    ApiClient.isLocalMode = true;
+    connBadge.textContent = '시뮬레이터';
+    connBadge.style.background = '#fff3cd';
+    connBadge.style.color = '#856404';
+    toggleBtn.textContent = '실제 서버로 연동';
+
+    toggleBtn.addEventListener('click', () => {
+      ApiClient.isLocalMode = !ApiClient.isLocalMode;
+      if (ApiClient.isLocalMode) {
+        connBadge.textContent = '시뮬레이터';
+        connBadge.style.background = '#fff3cd';
+        connBadge.style.color = '#856404';
+        toggleBtn.textContent = '실제 서버로 연동';
+        notify('🔌 로컬 시뮬레이터 모드로 전환되었습니다.');
+      } else {
+        connBadge.textContent = '실제 서버';
+        connBadge.style.background = '#d4edda';
+        connBadge.style.color = '#155724';
+        toggleBtn.textContent = '시뮬레이터로 연동';
+        ApiClient.serverUrl = urlInput.value.trim() || "http://localhost:8000";
+        notify(`🔌 실제 API 서버로 연동되었습니다. (${ApiClient.serverUrl})`);
+      }
+    });
+
+    urlInput.addEventListener('change', () => {
+      ApiClient.serverUrl = urlInput.value.trim() || "http://localhost:8000";
+      if (!ApiClient.isLocalMode) {
+        notify(`🔌 API 서버 주소가 변경되었습니다: ${ApiClient.serverUrl}`);
+      }
+    });
+  }
+
+  const chatInput = document.getElementById('dlg-chat-input');
+  const sendBtn = document.getElementById('dlg-chat-send-btn');
+  
+  if (sendBtn) {
+    sendBtn.addEventListener('click', handleSend);
+  }
+  if (chatInput) {
+    chatInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !chatInput.disabled) {
+        e.preventDefault();
+        handleSend();
+      }
+    });
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initAiUiBindings);
+} else {
+  initAiUiBindings();
 }
 
 // ─── 상점 시스템 ─────────────────────────────────────────────
@@ -265,6 +509,26 @@ export function showItemMenu(id){
   if(item.cat==='fossil'||item.cat==='fish'||item.cat==='bug'){
     choices.unshift({text:'박물관에 기증', action:()=>{donateItem(item.cat,id);closeDialogue();}});
   }
+  if(id==='medicine'){
+    choices.unshift({text:'약 먹기 (치료)', action:()=>{
+      if(!G.playerStung){
+        notify('🤕 지금은 쏘인 곳이 없어 약을 먹을 필요가 없습니다.');
+        closeDialogue();
+        return;
+      }
+      if(gs.inventory.medicine > 0){
+        gs.inventory.medicine--;
+        if(gs.inventory.medicine === 0) delete gs.inventory.medicine;
+        G.playerStung = false;
+        if(typeof window.buildPlayer === 'function') window.buildPlayer();
+        playSound('buy');
+        notify('💊 약을 먹고 벌 쏘인 상처가 깨끗이 나았습니다!');
+        saveState();
+        updateUI();
+      }
+      closeDialogue();
+    }});
+  }
   showDialogue(item.name, `${item.emoji} ${item.name} x${gs.inventory[id]||0}`, choices);
 }
 
@@ -303,21 +567,64 @@ export function spawnParticles(wx,wy,wz,emoji,count){
   for(let i=0;i<count;i++){
     const g=new THREE.Group();
     g.position.set(wx+(Math.random()-.5),wy+Math.random()*0.5,wz+(Math.random()-.5));
-    const col2=[0xffee44,0x44ee44,0xff88bb,0x44aaff,0xffffff][i%5];
-    const sp=mesh(new THREE.SphereGeometry(0.06,5,4),col2,false);
+    let color = [0xffee44,0x44ee44,0xff88bb,0x44aaff,0xffffff][i%5];
+    if (emoji === '🍃') color = 0x4a9e30; // green leaves
+    if (emoji === '💧') color = 0x5ba3e0; // water blue
+    if (emoji === '🍯') color = 0xd2b48c; // wood/beehive brown
+    const sp=mesh(new THREE.SphereGeometry(0.06,5,4),color,false);
     g.add(sp);
     g.userData={vy:0.04+Math.random()*0.06, life:60};
     G.scene.add(g);
     G.particles3d.push(g);
   }
 }
+
+export function spawnBees(wx, wy, wz) {
+  for(let i=0; i<15; i++){
+    const g=new THREE.Group();
+    const radius = 0.6 + Math.random() * 0.8;
+    const angle = Math.random() * Math.PI * 2;
+    g.position.set(wx + Math.cos(angle) * radius, wy + Math.random() * 1.2, wz + Math.sin(angle) * radius);
+    
+    const color = i % 2 === 0 ? 0x111111 : 0xffcc00; // 검은색 & 노란색 벌떼
+    const sp = mesh(new THREE.SphereGeometry(0.032, 4, 3), color, false);
+    g.add(sp);
+    
+    g.userData = {
+      isBee: true,
+      angle: angle,
+      radius: radius,
+      speed: 0.08 + Math.random() * 0.08,
+      vy: (Math.random() - 0.5) * 0.015,
+      life: 110
+    };
+    G.scene.add(g);
+    G.particles3d.push(g);
+  }
+}
+
 export function updateParticles(){
+  const px = G.playerPos.x;
+  const pz = G.playerPos.z;
+  const py = G.playerMesh ? G.playerMesh.position.y : 1.0;
   for(let i=G.particles3d.length-1;i>=0;i--){
     const p=G.particles3d[i];
     p.userData.life--;
-    p.position.y+=p.userData.vy;
-    p.userData.vy-=0.002;
-    p.children.forEach(c=>{if(c.material){c.material.opacity=p.userData.life/60;c.material.transparent=true;}});
+    if (p.userData.isBee) {
+      p.userData.angle += p.userData.speed;
+      p.userData.radius = Math.max(0.15, p.userData.radius - 0.006);
+      p.position.x = px + Math.cos(p.userData.angle) * p.userData.radius;
+      p.position.z = pz + Math.sin(p.userData.angle) * p.userData.radius;
+      p.position.y = (py + 1.1) + Math.sin(performance.now() * 0.012 + p.userData.angle) * 0.25;
+    } else {
+      p.position.y+=p.userData.vy;
+      p.userData.vy-=0.002;
+    }
+    p.children.forEach(c=>{if(c.material){
+      const maxLife = p.userData.isBee ? 110 : 60;
+      c.material.opacity=p.userData.life/maxLife;
+      c.material.transparent=true;
+    }});
     if(p.userData.life<=0){G.scene.remove(p);disposeMesh(p);G.particles3d.splice(i,1);}
   }
 }
@@ -339,6 +646,7 @@ export function updateTimeSystem(){
   const s=seasons[mo];
   document.getElementById('season-name').textContent=s.n;
   document.getElementById('season-icon').textContent=s.e;
+  if(G.inInterior) return; // 실내 진입 시 실외 조명/안개/하늘색 갱신 방지
   // 조명
   let ambI, sunI, sunC, ambC, fogC, skyC;
   if(h>=6&&h<8){         // 새벽
@@ -362,6 +670,7 @@ export function updateTimeSystem(){
   G.ambLight.color.setHex(ambC);
   G.scene.fog=new THREE.Fog(fogC,70,160);
   G.renderer.setClearColor(skyC);
+  G.scene.background = new THREE.Color(skyC);
   G.moonLight.intensity=h>=20||h<6?0.15:0;
   document.getElementById('time-icon').textContent=
     h>=6&&h<18?'☀️':h>=18&&h<20?'🌅':'🌙';

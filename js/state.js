@@ -31,10 +31,12 @@ export function loadState() {
   let s;
   try { s = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch(e){}
   G.gs = (s && s.bells !== undefined) ? s : freshState();
+  G.playerStung = !!G.gs.playerStung;
   return G.gs;
 }
 
 export function saveState() {
+  G.gs.playerStung = !!G.playerStung;
   localStorage.setItem(SAVE_KEY, JSON.stringify(G.gs));
 }
 

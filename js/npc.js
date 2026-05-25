@@ -8,8 +8,8 @@ import { animateLimbs, buildCharacter } from './character.js';
 import { mat, mesh } from './renderer.js';
 import { playSound } from './audio.js';
 
-// 주민 NPC가 걸을 수 있는 타일 — FIX: VILLAGER_HOUSE 추가 (집으로 복귀 가능)
-const NPC_WALK = new Set([T.GRASS,T.PATH,T.FLOWER,T.BRIDGE,T.BEACH,T.VILLAGER_HOUSE]);
+// 주민 NPC가 걸을 수 있는 타일 — FIX: VILLAGER_HOUSE 및 T.CLIFF 추가 (집/절벽 복귀 가능)
+const NPC_WALK = new Set([T.GRASS,T.PATH,T.FLOWER,T.BRIDGE,T.BEACH,T.CLIFF,T.VILLAGER_HOUSE]);
 
 export function buildNPC(vi) {
   const bc=vi.color;
@@ -18,37 +18,53 @@ export function buildNPC(vi) {
   const darker =((Math.max(r-50,0)<<16) |(Math.max(gv-50,0)<<8) |Math.max(b-50,0));
 
   const limbs={};
-  const g = buildCharacter(lighter, bc, darker, bc, 0x3a2a1a, limbs);
-  // 동물별 특징 추가
+  const g = buildCharacter(lighter, bc, darker, bc, 0x3a2a1a, limbs, true);
+  // 동물별 특징 추가 (넨도로이드 머리 높이 y=1.28에 맞춤)
   if(vi.type==='bunny'){
     [-0.15,0.15].forEach(ex=>{
-      const earO=mesh(new THREE.CylinderGeometry(0.07,0.09,0.6,7),bc);
-      earO.position.set(ex,1.9,0); earO.rotation.z=ex>0?-0.13:0.13; g.add(earO);
-      const earI=mesh(new THREE.CylinderGeometry(0.04,0.055,0.52,6),0xffb0bb);
-      earI.position.set(ex,1.9,0.045); earI.rotation.z=ex>0?-0.13:0.13; g.add(earI);
+      // 토끼 귀
+      const earO=mesh(new THREE.CylinderGeometry(0.06,0.08,0.5,7),bc);
+      earO.position.set(ex,1.72,0); earO.rotation.z=ex>0?-0.13:0.13; g.add(earO);
+      const earI=mesh(new THREE.CylinderGeometry(0.03,0.05,0.42,6),0xffb0bb);
+      earI.position.set(ex,1.72,0.045); earI.rotation.z=ex>0?-0.13:0.13; g.add(earI);
     });
-    const nose=mesh(new THREE.SphereGeometry(0.05,6,5),0xffaacc,false);
-    nose.position.set(0,1.32,0.42); g.add(nose);
+    // 둥글고 납작한 토끼 코
+    const nose=mesh(new THREE.SphereGeometry(0.042,6,5),0xffaacc,false);
+    nose.position.set(0,1.20,0.44); g.add(nose);
+    // 솜꼬리
+    const tail=mesh(new THREE.SphereGeometry(0.08,6,5),0xffffff);
+    tail.position.set(0,0.52,-0.2); g.add(tail);
   } else if(vi.type==='bear'){
+    // 곰 귀
     [-0.24,0.24].forEach(ex=>{
-      const earO=mesh(new THREE.SphereGeometry(0.14,8,6),bc);
-      earO.position.set(ex,1.82,0); g.add(earO);
-      const earI=mesh(new THREE.SphereGeometry(0.08,7,5),lighter);
-      earI.position.set(ex,1.82,0.06); g.add(earI);
+      const earO=mesh(new THREE.SphereGeometry(0.12,8,6),bc);
+      earO.position.set(ex,1.66,0); g.add(earO);
+      const earI=mesh(new THREE.SphereGeometry(0.07,7,5),lighter);
+      earI.position.set(ex,1.66,0.05); g.add(earI);
     });
-    const muzzle=mesh(new THREE.SphereGeometry(0.16,9,7),lighter);
-    muzzle.scale.set(1.1,0.78,0.68); muzzle.position.set(0,1.3,0.35); g.add(muzzle);
+    // 곰 주둥이
+    const muzzle=mesh(new THREE.SphereGeometry(0.14,9,7),lighter);
+    muzzle.scale.set(1.1,0.78,0.68); muzzle.position.set(0,1.15,0.36); g.add(muzzle);
+    const blackNose=mesh(new THREE.SphereGeometry(0.035,5,4),0x222222,false);
+    blackNose.position.set(0,1.19,0.45); g.add(blackNose);
+    // 곰 꼬리
+    const tail=mesh(new THREE.SphereGeometry(0.08,6,5),bc);
+    tail.position.set(0,0.52,-0.2); g.add(tail);
   } else if(vi.type==='frog'){
+    // 개구리 큰 왕눈이 (입체적으로 위로 솟구침)
     [-0.2,0.2].forEach(ex=>{
-      const eb=mesh(new THREE.SphereGeometry(0.15,9,7),bc);
-      eb.position.set(ex,1.62,0.08); g.add(eb);
-      const ew=mesh(new THREE.SphereGeometry(0.1,8,6),0xffffff,false);
-      ew.position.set(ex,1.64,0.19); g.add(ew);
-      const ep=mesh(new THREE.SphereGeometry(0.06,6,5),0x111111,false);
-      ep.position.set(ex,1.64,0.26); g.add(ep);
+      const eb=mesh(new THREE.SphereGeometry(0.14,9,7),bc);
+      eb.position.set(ex,1.48,0.08); g.add(eb);
+      const ew=mesh(new THREE.SphereGeometry(0.09,8,6),0xffffff,false);
+      ew.position.set(ex,1.49,0.18); g.add(ew);
+      const ep=mesh(new THREE.SphereGeometry(0.055,6,5),0x111111,false);
+      ep.position.set(ex,1.49,0.23); g.add(ep);
+      const hl=mesh(new THREE.SphereGeometry(0.02,4,3),0xffffff,false);
+      hl.position.set(ex+0.02,1.52,0.24); g.add(hl);
     });
-    const fSmile=mesh(new THREE.TorusGeometry(0.11,0.026,6,10,Math.PI),bc,false);
-    fSmile.rotation.z=Math.PI; fSmile.position.set(0,1.24,0.39); g.add(fSmile);
+    // 개구리 시그니처 큰 미소 입꼬리
+    const fSmile=mesh(new THREE.TorusGeometry(0.1,0.022,6,10,Math.PI),0x3a2a1a,false);
+    fSmile.rotation.z=Math.PI; fSmile.position.set(0,1.11,0.4); g.add(fSmile);
   }
 
   // FIX: 집 타일 위가 아니라 집에서 남쪽으로 2칸 떨어진 곳에 스폰
@@ -68,8 +84,40 @@ export function buildNPC(vi) {
     memory:{playerVisits:0,lastPlayerItem:null,heardFrom:{},learnedPhrases:[],scenario:null},
     friendship:G.gs?(G.gs.talked_to[vi.id]||0):0,
     chatCooldown:0, targetVillager:null, targetPos:null,
+    stuckCount:0,
     limbs,
   };
+
+  // 원래 색상 캐싱
+  g.traverse(c=>{
+    if(c.isMesh && c.material && c.material.color) {
+      c.userData.originalColor = c.material.color.getHex();
+    }
+  });
+}
+
+function applyNPCColor(m, emotionState) {
+  let targetHex = null;
+  if (emotionState === 'angry') targetHex = 0xff3333; // 짙은 적색
+  else if (emotionState === 'sad') targetHex = 0x5ba3e0; // 파란색
+  else if (emotionState === 'shy') targetHex = 0xffaacc; // 뺨 분홍색
+  else if (emotionState === 'comfortable') targetHex = 0x88cc88; // 올리브빛 연두색
+  else if (emotionState === 'stressed') targetHex = 0x9966cc; // 칙칙한 보라색
+  
+  m.traverse(c => {
+    if (c.isMesh && c.material && c.material.color) {
+      if (targetHex !== null) {
+        const orig = c.userData.originalColor;
+        if (orig !== 0xffffff && orig !== 0x111111 && orig !== 0x3a2a1a && orig !== 0x2255cc) {
+          c.material.color.setHex(targetHex);
+        }
+      } else {
+        if (c.userData.originalColor !== undefined) {
+          c.material.color.setHex(c.userData.originalColor);
+        }
+      }
+    }
+  });
 }
 
 // ─── 주민 AI ─────────────────────────────────────────────────
@@ -161,12 +209,36 @@ export function updateNPCs(dt) {
         const tx=Math.round(nx/CS), tz=Math.round(nz/CS);
         const hdx=nx-st.home[0], hdz=nz-st.home[1];
         const homeDist=Math.sqrt(hdx*hdx+hdz*hdz);
-        if(NPC_WALK.has(getTile(tx,tz))&&homeDist<CS*5){
+        
+        // 집 반경 5.5칸 한계로 마진 적용
+        if(NPC_WALK.has(getTile(tx,tz)) && homeDist < CS*5.5){
           st.wx=nx; st.wz=nz;
+          st.stuckCount = 0; // 성공적으로 이동 시 stuck 카운트 리셋
         } else {
-          // 집 방향으로 돌아가기
-          st.dir=Math.atan2(st.home[0]-st.wx, st.home[1]-st.wz)+( Math.random()-0.5)*0.8;
-          st.moveTimer=40;
+          // 충돌 또는 경계 이탈 시 물러서기 (충돌 타일에서 완전히 벗어나도록 0.55 고정 유닛 반발)
+          st.wx -= Math.sin(st.dir) * 0.55;
+          st.wz -= Math.cos(st.dir) * 0.55;
+          st.stuckCount = (st.stuckCount || 0) + 1;
+
+          if (st.stuckCount >= 3) {
+            // 3회 이상 낀 상황: 강제로 방향을 크게 틀고 임시 유휴(IDLE) 상태로 진입 (Anti-Stuck)
+            st.dir = Math.random() * Math.PI * 2;
+            st.aiState = 'IDLE';
+            st.stateTimer = 80 + Math.random() * 80;
+            st.stuckCount = 0;
+            st.wx -= Math.sin(st.dir) * 0.7; // 추가 반발
+            st.wz -= Math.cos(st.dir) * 0.7;
+          } else {
+            if (homeDist >= CS * 5.5) {
+              // 집으로 회귀 방향 (노이즈 최소화)
+              st.dir = Math.atan2(st.home[0]-st.wx, st.home[1]-st.wz) + (Math.random()-0.5)*0.2;
+            } else {
+              // 벽 충돌 시 회피각 크게 꺾기 (90~270도 수준)
+              st.dir += Math.PI + (Math.random() - 0.5) * 1.2;
+            }
+            // 즉각적인 충돌 판정 재발을 막기 위해 이동 타이머 확보
+            st.moveTimer = 60 + Math.random() * 60;
+          }
         }
         if(st.stateTimer<=0){
           const next=['IDLE','SIT','LOOK_AROUND'];
@@ -206,18 +278,92 @@ export function updateNPCs(dt) {
         break;
     }
 
-    // 위치 적용
+    // 위치 및 감정 애니메이션 적용
     const ftx=Math.round(st.wx/CS), ftz=Math.round(st.wz/CS);
-    m.position.set(st.wx, tileH(ftx,ftz), st.wz);
-    m.rotation.y=Math.atan2(Math.sin(st.dir),Math.cos(st.dir));
+    const baseH = tileH(ftx,ftz);
+
+    let emoOffsetY = 0;
+    let emoRotY = 0;
+    let emoOffsetX = 0;
+    let emoOffsetZ = 0;
+    let emoScaleY = 1;
+    let emoRotZ = 0;
+
+    const tNow = performance.now() * 0.002;
+    const charCode = vi.id.charCodeAt(0);
+    const emotion = st.emotionState || 'neutral';
+
+    if (st.lastAppliedEmotion !== emotion) {
+      applyNPCColor(m, emotion);
+      st.lastAppliedEmotion = emotion;
+    }
+
+    switch(emotion) {
+      case 'happy':
+        emoOffsetY = Math.abs(Math.sin(tNow * 12 + charCode)) * 0.9;
+        emoScaleY = 1.0 + Math.sin(tNow * 12 + charCode) * 0.1;
+        break;
+      case 'excited':
+        emoRotY = tNow * 18;
+        emoOffsetY = Math.abs(Math.sin(tNow * 8 + charCode)) * 0.4;
+        break;
+      case 'angry':
+        emoOffsetX = Math.sin(tNow * 70 + charCode) * 0.06;
+        emoOffsetZ = Math.cos(tNow * 70 + charCode) * 0.06;
+        break;
+      case 'sad':
+        emoScaleY = 0.82 + Math.sin(tNow * 4 + charCode) * 0.04;
+        emoOffsetY = Math.sin(tNow * 4 + charCode) * 0.02;
+        break;
+      case 'shy':
+        emoRotZ = Math.sin(tNow * 6 + charCode) * 0.22;
+        break;
+      case 'comfortable':
+        emoOffsetY = 0.2 + Math.sin(tNow * 2.5 + charCode) * 0.15;
+        break;
+      case 'stressed':
+        emoRotZ = Math.sin(tNow * 10 + charCode) * 0.35 + (Math.random() - 0.5) * 0.08;
+        emoScaleY = 0.95 + (Math.random() - 0.5) * 0.04;
+        break;
+      case 'neutral':
+      default:
+        if (st.aiState === 'SIT') emoScaleY = 0.85;
+        break;
+    }
+
+    // 루트 그룹은 언제나 바닥 평면에 고정하여 접지 그림자 밀착
+    m.position.set(st.wx + emoOffsetX, baseH, st.wz + emoOffsetZ);
+    m.rotation.y = Math.atan2(Math.sin(st.dir), Math.cos(st.dir)) + emoRotY;
+    m.rotation.z = emoRotZ;
+    m.scale.y = emoScaleY;
+
+    if (m.userData.visualGroup) {
+      m.userData.visualGroup.position.y = emoOffsetY;
+    }
+    if (m.userData.shadowMesh) {
+      m.userData.shadowMesh.scale.set(1, 1, 1);
+    }
 
     // 팔다리 걷기 애니메이션
-    animateLimbs(st.limbs, st.aiState==='WALK', vi.id.charCodeAt(0));
+    animateLimbs(st.limbs, st.aiState==='WALK', charCode);
 
-    // 상체 bob
-    const tNow=performance.now()*0.002;
-    const bobAmt=(st.aiState==='WALK')?0.04:(st.aiState==='REACT')?0.12:0.012;
-    m.position.y+=Math.abs(Math.sin(tNow*2+vi.id.charCodeAt(0)))*bobAmt;
+    // 상체 기본 bob
+    let bobY = 0;
+    if (emotion !== 'happy' && emotion !== 'excited' && st.aiState !== 'SIT') {
+      const bobAmt = (st.aiState==='WALK')?0.04:(st.aiState==='REACT')?0.12:0.012;
+      bobY = Math.abs(Math.sin(tNow*2+charCode))*bobAmt;
+    }
+
+    if (m.userData.visualGroup) {
+      m.userData.visualGroup.position.y += bobY;
+      if (m.userData.shadowMesh) {
+        const totalHeight = emoOffsetY + bobY;
+        const scaleVal = Math.max(0.55, 1.0 - totalHeight * 1.4);
+        m.userData.shadowMesh.scale.set(scaleVal, scaleVal, 1);
+      }
+    } else {
+      m.position.y += emoOffsetY + bobY;
+    }
   });
 }
 

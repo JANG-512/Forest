@@ -11,8 +11,8 @@ export const T = Object.freeze({
 });
 
 export const WW = 48, WH = 48, CS = 1.8;
-export const CAM_EL = 0.75;
-export const CAM_DST = 28;
+export const CAM_EL = 0.58;
+export const CAM_DST = 26;
 export const SAVE_KEY = 'forest_island_v1';
 
 // ─── 아이템 데이터베이스 ─────────────────────────────────────
@@ -136,8 +136,8 @@ export const TILE_HEIGHT = {
 };
 
 // ─── 이동/상호작용 가능 타일 ───────────────────────────────
+// 건물 타일은 WALKABLE에서 제외 — 플레이어가 건물 메시를 통과하지 않도록
 export const WALKABLE = new Set([T.GRASS,T.PATH,T.FLOWER,T.BRIDGE,T.CLIFF,T.BEACH,
-  T.SHOP,T.MUSEUM,T.NOOK_HQ,T.PLAYER_HOUSE,T.VILLAGER_HOUSE,T.TREE,T.ROCK,
   T.DIG_SPOT,T.WATERFALL]);
 export const INTERACTABLE = new Set([T.TREE,T.ROCK,T.SHOP,T.MUSEUM,T.NOOK_HQ,
   T.PLAYER_HOUSE,T.VILLAGER_HOUSE,T.FLOWER,T.DIG_SPOT]);

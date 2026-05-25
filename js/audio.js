@@ -30,6 +30,7 @@ export function playSound(type){
       talk:    {f:550,  type:'sine',  vol:0.08, dur:0.12},
       donate:  {f:880,  type:'sine',  vol:0.2,  dur:0.5},
       buy:     {f:770,  type:'sine',  vol:0.12, dur:0.25},
+      rustle:  {f:180,  type:'sine',  vol:0.1,  dur:0.15},
     };
     const c=configs[type]||configs.step;
     osc.type=c.type; osc.frequency.value=c.f;

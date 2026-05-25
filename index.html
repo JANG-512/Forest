@@ -2,6 +2,45 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<script>
+window.onerror = function(message, source, lineno, colno, error) {
+  var div = document.createElement('div');
+  div.style.position = 'fixed';
+  div.style.inset = '0';
+  div.style.background = 'rgba(255, 0, 0, 0.95)';
+  div.style.color = 'white';
+  div.style.padding = '24px';
+  div.style.zIndex = '999999';
+  div.style.fontSize = '14px';
+  div.style.fontFamily = 'monospace';
+  div.style.overflow = 'auto';
+  div.style.pointerEvents = 'all';
+  div.innerHTML = '<h2>🚨 자바스크립트 런타임 오류 발생:</h2>' +
+                  '<p><b>메시지:</b> ' + message + '</p>' +
+                  '<p><b>출처:</b> ' + source + '</p>' +
+                  '<p><b>라인:</b> ' + lineno + ':' + colno + '</p>' +
+                  '<pre style="margin-top:10px;background:#333;padding:10px;border-radius:6px;white-space:pre-wrap">' + (error && error.stack ? error.stack : '') + '</pre>';
+  document.body.appendChild(div);
+  return false;
+};
+window.addEventListener('unhandledrejection', function(event) {
+  var div = document.createElement('div');
+  div.style.position = 'fixed';
+  div.style.inset = '0';
+  div.style.background = 'rgba(255, 0, 0, 0.95)';
+  div.style.color = 'white';
+  div.style.padding = '24px';
+  div.style.zIndex = '999999';
+  div.style.fontSize = '14px';
+  div.style.fontFamily = 'monospace';
+  div.style.overflow = 'auto';
+  div.style.pointerEvents = 'all';
+  div.innerHTML = '<h2>🚨 비동기 Promise 오류 발생:</h2>' +
+                  '<p><b>이유:</b> ' + event.reason + '</p>' +
+                  '<pre style="margin-top:10px;background:#333;padding:10px;border-radius:6px;white-space:pre-wrap">' + (event.reason && event.reason.stack ? event.reason.stack : '') + '</pre>';
+  document.body.appendChild(div);
+});
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Forest Island 🌿</title>
 <link rel="manifest" href="manifest.json">
@@ -16,7 +55,7 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{overflow:hidden;background:#7ec8e3;font-family:'Segoe UI',system-ui,sans-serif;user-select:none}
-#c3d{display:block;width:100vw;height:100vh}
+#c3d{display:block;width:100vw;height:100vh;filter:saturate(1.18) contrast(1.02) brightness(1.04)}
 #ui{position:fixed;inset:0;pointer-events:none}
 /* HUD */
 #hud-top{position:absolute;top:10px;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;padding:0 14px;gap:8px}
@@ -161,6 +200,84 @@ body{overflow:hidden;background:#7ec8e3;font-family:'Segoe UI',system-ui,sans-se
     <div class="hud-pill" id="miles-pill">🦋 <span id="miles-val">0</span> 마일</div>
   </div>
   <div id="season-banner"><span id="season-icon">🌸</span><span id="season-name">봄</span></div>
+  
+  <!-- AI 백엔드 연동 세팅 -->
+  <div id="ai-setting-pill" style="position:absolute;top:92px;right:14px;background:rgba(255,255,255,0.92);border-radius:12px;padding:6px 10px;font-size:11px;font-weight:700;color:#3b3028;display:flex;flex-direction:column;gap:4px;box-shadow:0 2px 8px rgba(0,0,0,0.1);pointer-events:all;z-index:10">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <span>🔌 AI 연동:</span>
+      <span id="ai-conn-badge" style="background:#d4edda;color:#155724;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:800">시뮬레이터</span>
+    </div>
+    <input type="text" id="ai-url-input" value="http://localhost:8000" style="padding:2.5px 5px;border:1px solid rgba(0,0,0,0.15);border-radius:4px;font-size:9px;width:110px;outline:none;color:#3b3028">
+    <button id="ai-toggle-btn" style="background:#e6aa22;color:white;border:none;border-radius:6px;padding:3.5px 6px;font-size:9px;cursor:pointer;font-weight:bold;width:110px;transition:0.15s">실제 서버로 연동</button>
+  </div>
+
+  <!-- 실시간 NPC AI 감정/관계 대시보드 -->
+  <div id="debug-dashboard" style="position:absolute;left:14px;top:70px;width:230px;background:rgba(255,255,255,0.94);border-radius:18px;border:2px solid #e6aa22;padding:12px;box-shadow:0 4px 16px rgba(0,0,0,0.12);pointer-events:all;z-index:9;display:none;font-size:11px">
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(0,0,0,0.08);padding-bottom:5px;margin-bottom:8px">
+      <span style="font-weight:800;color:#3b3028">📊 실시간 NPC 스태이터스</span>
+      <button id="minimize-debug" style="margin-left:auto;background:none;border:none;color:#e6aa22;font-weight:bold;cursor:pointer;font-size:10px">접기 [-]</button>
+    </div>
+    <div id="debug-content" style="display:flex;flex-direction:column;gap:8px">
+      <div style="background:rgba(0,0,0,0.04);border-radius:10px;padding:6px 10px">
+        <h3 style="font-weight:800;color:#7a5c2e;font-size:12px" id="debug-npc-name">NPC를 선택하세요</h3>
+        <p style="font-size:9px;color:#888;margin-top:2px;line-height:1.3" id="debug-npc-desc">주민에게 다가가 말을 걸어보세요.</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <h4 style="font-size:9px;font-weight:800;color:#3b3028;text-transform:uppercase;letter-spacing:0.5px">감정 지표 (npc_state)</h4>
+        <!-- happiness -->
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:8px;color:#666"><span>😊 기쁨 (happiness)</span><span id="stat-val-happiness">50%</span></div>
+          <div style="width:100%;height:5px;background:rgba(0,0,0,0.06);border-radius:2.5px;overflow:hidden"><div id="stat-bar-happiness" style="width:50%;height:100%;background:#ffcc44;transition:width 0.3s"></div></div>
+        </div>
+        <!-- sadness -->
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:8px;color:#666"><span>😢 슬픔 (sadness)</span><span id="stat-val-sadness">50%</span></div>
+          <div style="width:100%;height:5px;background:rgba(0,0,0,0.06);border-radius:2.5px;overflow:hidden"><div id="stat-bar-sadness" style="width:50%;height:100%;background:#5ba3e0;transition:width 0.3s"></div></div>
+        </div>
+        <!-- anger -->
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:8px;color:#666"><span>😡 분노 (anger)</span><span id="stat-val-anger">50%</span></div>
+          <div style="width:100%;height:5px;background:rgba(0,0,0,0.06);border-radius:2.5px;overflow:hidden"><div id="stat-bar-anger" style="width:50%;height:100%;background:#ee6655;transition:width 0.3s"></div></div>
+        </div>
+        <!-- stress -->
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:8px;color:#666"><span>🔥 스트레스 (stress)</span><span id="stat-val-stress">50%</span></div>
+          <div style="width:100%;height:5px;background:rgba(0,0,0,0.06);border-radius:2.5px;overflow:hidden"><div id="stat-bar-stress" style="width:50%;height:100%;background:#bb66ee;transition:width 0.3s"></div></div>
+        </div>
+        <!-- loneliness -->
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:8px;color:#666"><span>🍂 외로움 (loneliness)</span><span id="stat-val-loneliness">50%</span></div>
+          <div style="width:100%;height:5px;background:rgba(0,0,0,0.06);border-radius:2.5px;overflow:hidden"><div id="stat-bar-loneliness" style="width:50%;height:100%;background:#6677aa;transition:width 0.3s"></div></div>
+        </div>
+        <!-- excitement -->
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:8px;color:#666"><span>⚡ 흥분 (excitement)</span><span id="stat-val-excitement">50%</span></div>
+          <div style="width:100%;height:5px;background:rgba(0,0,0,0.06);border-radius:2.5px;overflow:hidden"><div id="stat-bar-excitement" style="width:50%;height:100%;background:#ff88bb;transition:width 0.3s"></div></div>
+        </div>
+      </div>
+      <div style="margin-top:2px">
+        <h4 style="font-size:9px;font-weight:800;color:#3b3028;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px">관계 변화량 (relationship_change)</h4>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:4px;text-align:center;font-size:8px">
+          <div style="background:rgba(126,200,128,0.1);border:1px solid rgba(126,200,128,0.25);border-radius:6px;padding:3px">
+            <div style="color:#3a9e5f;font-weight:bold" id="rel-val-friendship">+0</div>
+            <div style="color:#777">우정</div>
+          </div>
+          <div style="background:rgba(91,163,224,0.1);border:1px solid rgba(91,163,224,0.25);border-radius:6px;padding:3px">
+            <div style="color:#3a7ec8;font-weight:bold" id="rel-val-trust">+0</div>
+            <div style="color:#777">신뢰</div>
+          </div>
+          <div style="background:rgba(255,136,187,0.1);border:1px solid rgba(255,136,187,0.25);border-radius:6px;padding:3px">
+            <div style="color:#e65c92;font-weight:bold" id="rel-val-affection">+0</div>
+            <div style="color:#777">애정</div>
+          </div>
+          <div style="background:rgba(238,102,85,0.1);border:1px solid rgba(238,102,85,0.25);border-radius:6px;padding:3px">
+            <div style="color:#c8443a;font-weight:bold" id="rel-val-conflict">+0</div>
+            <div style="color:#777">갈등</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- 도구 바 -->
   <div id="toolbar">
@@ -180,7 +297,26 @@ body{overflow:hidden;background:#7ec8e3;font-family:'Segoe UI',system-ui,sans-se
   <div id="dialogue">
     <div class="npc-name" id="dlg-name"></div>
     <div class="text" id="dlg-text"></div>
+    
+    <!-- 텍스트 채팅 입력창 (FastAPI NPC AI 연동을 위해 임베딩) -->
+    <div id="dlg-chat-container" style="display:flex;gap:6px;margin:12px 0 6px 0;border-top:1px solid rgba(0,0,0,0.06);padding-top:10px;pointer-events:all">
+      <input type="text" id="dlg-chat-input" placeholder="대답을 입력하세요..." maxlength="80" style="flex:1;padding:8px 12px;border:2px solid rgba(0,0,0,0.08);border-radius:10px;font-size:13px;outline:none;background:rgba(255,255,255,0.9);color:#3b3028">
+      <button id="dlg-chat-send-btn" class="choice-btn" style="background:#e6aa22;font-size:12px;padding:8px 14px">보내기 💬</button>
+    </div>
+    
     <div class="choices" id="dlg-choices"></div>
+  </div>
+
+  <!-- 멀티플레이어 채팅 패널 -->
+  <div id="mp-chat-panel" style="position:absolute;bottom:88px;left:14px;width:240px;background:rgba(255,255,255,0.85);backdrop-filter:blur(6px);border-radius:14px;padding:8px 12px;box-shadow:0 3px 12px rgba(0,0,0,0.12);pointer-events:all;z-index:9;display:none;flex-direction:column;gap:5px;font-size:11px">
+    <div style="font-weight:bold;color:#3b3028;border-bottom:1px solid rgba(0,0,0,0.06);padding-bottom:3px;margin-bottom:3px">🌍 섬 주민 채팅</div>
+    <div id="mp-chat-log" style="height:100px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;margin-bottom:3px;color:#555">
+      <div style="color:#aaa;font-style:italic">방에 연결되면 대화를 나눌 수 있어요.</div>
+    </div>
+    <div style="display:flex;gap:4px">
+      <input type="text" id="mp-chat-input" placeholder="메시지 입력..." maxlength="60" style="flex:1;padding:4.5px 8px;border:1px solid rgba(0,0,0,0.15);border-radius:6px;font-size:9.5px;outline:none;background:rgba(255,255,255,0.9);color:#3b3028">
+      <button id="mp-chat-send-btn" style="background:#5ba3e0;color:white;border:none;border-radius:6px;padding:4.5px 8px;font-size:9.5px;font-weight:bold;cursor:pointer">전송</button>
+    </div>
   </div>
 
   <!-- 낚시 UI -->
@@ -270,6 +406,6 @@ body{overflow:hidden;background:#7ec8e3;font-family:'Segoe UI',system-ui,sans-se
   </div>
 </div>
 
-<script type="module" src="js/main.js"></script>
+<script type="module" src="js/main.js?v=2.0"></script>
 </body>
 </html>

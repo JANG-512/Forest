@@ -67,6 +67,13 @@ function setupConnection(conn){
   G.MP.conn=conn;
   conn.on('open',()=>{
     document.getElementById('mp-disc-btn').style.display='block';
+    
+    // 채팅 패널 활성화
+    const chatPanel = document.getElementById('mp-chat-panel');
+    if(chatPanel) chatPanel.style.display = 'flex';
+    const log = document.getElementById('mp-chat-log');
+    if(log) log.innerHTML = '<div style="color:#2b8a3e;font-weight:bold;font-size:9.5px">🌍 실시간 채팅방에 참여했습니다!</div>';
+
     if(G.MP.isHost){
       // 호스트: 월드 데이터 전송
       const worldData=Array.from(G.world);
@@ -123,7 +130,8 @@ function handleMPData(data){
     }
     G.MP.remoteTarget={x:data.x, z:data.z, dir:data.dir, moving:data.moving};
   } else if(data.type==='chat'){
-    notify('💬 '+data.msg);
+    notify('💬 친구: '+data.msg);
+    appendChatLog('친구', data.msg);
   }
 }
 
@@ -138,6 +146,11 @@ function buildRemotePlayer(){
 function cleanupRemote(){
   if(G.MP.remoteMesh){ G.scene.remove(G.MP.remoteMesh); disposeMesh(G.MP.remoteMesh); G.MP.remoteMesh=null; }
   G.MP.remoteTarget=null;
+  
+  // 채팅 패널 끄기
+  const chatPanel = document.getElementById('mp-chat-panel');
+  if(chatPanel) chatPanel.style.display = 'none';
+
   if(G.MP.visitingMode){
     // 자기 섬으로 복원
     G.MP.visitingMode=false;
@@ -165,4 +178,54 @@ export function updateMultiplayer(dt){
   G.MP.remoteMesh.rotation.y=t.dir;
   // 팔다리 애니메이션
   animateLimbs(G.MP.remoteLimbs, t.moving, 2.5);
+}
+
+// ─── 멀티플레이어 채팅 유틸리티 ───
+export function sendChatMessage(msg) {
+  if(!G.MP.conn || !G.MP.conn.open) {
+    notify('🔌 연결된 상대방이 없습니다.');
+    return;
+  }
+  const txt = msg.trim();
+  if (!txt) return;
+  G.MP.conn.send({type:'chat', msg: txt});
+  appendChatLog('나', txt);
+}
+
+function appendChatLog(sender, text) {
+  const log = document.getElementById('mp-chat-log');
+  if (!log) return;
+  const isMe = sender === '나';
+  const color = isMe ? '#1c7ed6' : '#e64980';
+  const msgDiv = document.createElement('div');
+  msgDiv.style.wordBreak = 'break-all';
+  msgDiv.style.marginBottom = '2px';
+  msgDiv.innerHTML = `<b style="color:${color}">${sender}:</b> ${text}`;
+  log.appendChild(msgDiv);
+  log.scrollTop = log.scrollHeight;
+}
+
+function initMpChatBindings() {
+  const sendBtn = document.getElementById('mp-chat-send-btn');
+  const input = document.getElementById('mp-chat-input');
+  if(sendBtn) {
+    sendBtn.onclick = () => {
+      sendChatMessage(input.value);
+      input.value = '';
+    };
+  }
+  if(input) {
+    input.onkeydown = (e) => {
+      if(e.key === 'Enter') {
+        sendChatMessage(input.value);
+        input.value = '';
+      }
+    };
+  }
+}
+
+if(document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initMpChatBindings);
+} else {
+  initMpChatBindings();
 }

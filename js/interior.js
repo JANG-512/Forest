@@ -6,6 +6,7 @@ import { T, CS, VILLAGERS } from './config.js';
 import { mat, mesh, disposeMesh } from './renderer.js';
 import { tileH } from './world.js';
 import { playSound } from './audio.js';
+import { updateTimeSystem } from './ui.js';
 
 // 실내 방 중심 좌표 (월드 공간 멀리 떨어진 고정 위치)
 const CX = 500, CZ = 500;
@@ -42,9 +43,6 @@ function buildRoom(cx, cz, wallColor, floorColor, W=ROOM_W, D=ROOM_D){
   // Door frame
   const doorFrame = mesh(new THREE.BoxGeometry(2.4, wallH*0.7+0.1, 0.15), 0x8B5E3C);
   doorFrame.position.set(cx, wallH*0.35, cz + D/2 + 0.05); track(doorFrame);
-  // Ceiling (살짝 어두운 벽색)
-  const ceil = mesh(new THREE.BoxGeometry(W, 0.2, D), wallColor);
-  ceil.position.set(cx, wallH, cz); track(ceil);
 }
 
 // ─── 건물별 가구 ─────────────────────────────────────────────
@@ -72,6 +70,15 @@ function furnishShop(cx, cz){
       }
     }
   });
+
+  // [디테일 소품 추가] 금빛 안내 종
+  const bell = mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.1, 8), 0xffdd44, false);
+  bell.position.set(cx - 2.5, 1.25, cz - ROOM_D/2 + 1.8); track(bell);
+  // [디테일 소품 추가] 카운터 위 커피 찻잔 2개
+  const cup1 = mesh(new THREE.CylinderGeometry(0.06, 0.04, 0.08, 8), 0xffffff, false);
+  cup1.position.set(cx + 1.8, 1.25, cz - ROOM_D/2 + 1.8); track(cup1);
+  const cup2 = mesh(new THREE.CylinderGeometry(0.06, 0.04, 0.08, 8), 0xffaacc, false);
+  cup2.position.set(cx + 2.1, 1.25, cz - ROOM_D/2 + 1.9); track(cup2);
 }
 
 function furnishMuseum(cx, cz, W, D){
@@ -106,6 +113,17 @@ function furnishMuseum(cx, cz, W, D){
     const bug=mesh(new THREE.BoxGeometry(0.6,0.6,0.06),cols[i],false);
     bug.position.set(cx-3+i*2, WALL_H*0.6, cz-D/2+0.32); track(bug);
   }
+
+  // [디테일 소품 추가] 레드 카펫 복도
+  const carpet = mesh(new THREE.BoxGeometry(2.5, 0.02, D - 4), 0xee3333, false);
+  carpet.position.set(cx, 0.12, cz); track(carpet);
+  // [디테일 소품 추가] 금빛 가이드 라인 펜스 (입구 양옆 4개)
+  [[-1.6, cz + D/2 - 4], [1.6, cz + D/2 - 4], [-1.6, cz + D/2 - 8], [1.6, cz + D/2 - 8]].forEach(([px, pz]) => {
+    const post = mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.7, 6), 0xffdd44, false);
+    post.position.set(cx + px, 0.45, pz); track(post);
+    const ball = mesh(new THREE.SphereGeometry(0.06, 6, 5), 0xffdd44, false);
+    ball.position.set(cx + px, 0.82, pz); track(ball);
+  });
 }
 
 function furnishNook(cx, cz){
@@ -127,6 +145,17 @@ function furnishNook(cx, cz){
     const pin=new THREE.Mesh(new THREE.SphereGeometry(0.12,8,6),mat(pinCols[i]));
     pin.position.set(cx-ROOM_W/2+0.45, WALL_H*0.55+0.6-i*0.4, cz-0.8+(i%2)*1.6); track(pin);
   }
+
+  // [디테일 소품 추가] 책상 위 서류 책 더미
+  [0, 0.06, 0.12].forEach((dy, idx) => {
+    const book = mesh(new THREE.BoxGeometry(0.4, 0.06, 0.5), idx === 1 ? 0xffcc44 : 0xee5533, false);
+    book.position.set(cx + 0.9, 1.03 + dy, cz - ROOM_D/2 + 2);
+    book.rotation.y = (idx - 1) * 0.12;
+    track(book);
+  });
+  // [디테일 소품 추가] 휴지통
+  const bin = mesh(new THREE.CylinderGeometry(0.16, 0.13, 0.35, 8), 0x555555, false);
+  bin.position.set(cx - 1.8, 0.38, cz - ROOM_D/2 + 2); track(bin);
 }
 
 function furnishPlayerHouse(cx, cz){
@@ -148,6 +177,16 @@ function furnishPlayerHouse(cx, cz){
     // 러그
     const rug=mesh(new THREE.BoxGeometry(3.5,0.05,3),0x6688cc,false);
     rug.position.set(cx-2,0.23,cz-1.2); track(rug);
+
+    // [디테일 소품 추가] 황금 스탠드 조명 (PointLight 포함)
+    const standPole = mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.4, 6), 0xffdd44, false);
+    standPole.position.set(cx - 3.8, 0.9, cz - ROOM_D/2 + 2.5); track(standPole);
+    const shade = mesh(new THREE.ConeGeometry(0.24, 0.28, 8), 0xffffff, false);
+    shade.position.set(cx - 3.8, 1.6, cz - ROOM_D/2 + 2.5); shade.rotation.x = Math.PI; track(shade);
+    
+    const lampLight = new THREE.PointLight(0xffecc0, 1.2, 15);
+    lampLight.position.set(cx - 3.8, 1.5, cz - ROOM_D/2 + 2.5);
+    track(lampLight);
   }
   if(lv>=2){
     // 침대
@@ -222,10 +261,30 @@ export function enterBuilding(type, bx, by){
   if(G.inInterior) return;
   G.inInterior = true;
   G.interiorBuilding = {type, bx, by};
-  // 퇴장 시 돌아갈 위치: 건물 입구 (건물 타일 남쪽 1칸)
-  G.interiorExitPos = {x: bx*CS, z: (by+1)*CS};
+  // 퇴장 시 돌아갈 위치: 건물 입구 (건물 타일 남쪽 1.5칸으로 물리 마진 보정)
+  G.interiorExitPos = {x: bx*CS, z: (by+1.5)*CS};
   G.exteriorRoot.visible = false;
   if(G.facingMarkerMesh) G.facingMarkerMesh.visible = false;
+
+  // 실내 조명 설정: 실외 조명 비활성화 및 환경광 변경
+  if(G.sunLight) G.sunLight.visible = false;
+  if(G.moonLight) G.moonLight.visible = false;
+  if(G.ambLight) {
+    G.ambLight.intensity = 0.38;
+    G.ambLight.color.setHex(0xe8d0b0); // 따뜻하고 아늑한 전구색
+  }
+
+  // 실내 천장 포인트 조명 추가
+  const roomLight = new THREE.PointLight(0xfff2d0, 1.4, 25);
+  roomLight.position.set(CX, WALL_H - 0.5, CZ);
+  roomLight.castShadow = true;
+  roomLight.shadow.bias = -0.002;
+  track(roomLight);
+
+  // 실내 Fog & ClearColor 지정 (마을과 완전히 격리된 검은색 방 외경 연출)
+  G.scene.fog = new THREE.Fog(0x0a0a0a, 40, 85);
+  G.renderer.setClearColor(0x0a0a0a);
+  G.scene.background = new THREE.Color(0x0a0a0a);
 
   const pal = ROOM_PALETTE[type] || {wall:0xeeddcc, floor:0xc8a858};
 
@@ -266,12 +325,22 @@ export function exitBuilding(){
   G.inInterior=false;
   G.exteriorRoot.visible=true;
 
+  // 실외 조명 및 날씨/ Fog/ClearColor 복원
+  if(G.sunLight) G.sunLight.visible = true;
+  updateTimeSystem(); // 강제 복원
+
   // 건물 입구 타일로 복귀
   const ep=G.interiorExitPos||{x:27*CS, z:27*CS};
   G.playerPos.x=ep.x; G.playerPos.z=ep.z;
   G.camTargetX=ep.x; G.camTargetZ=ep.z;
   G.interiorBuilding=null;
   G.interiorExitPos=null;
+
+  // 퇴장 시 플레이어 방향 남쪽(down)으로 강제 정렬
+  G.playerDir = 'down';
+  if(G.playerMesh){
+    G.playerMesh.rotation.y = 0;
+  }
 
   // 낚시 힌트 UI 정리
   const ui=document.getElementById('fishing-ui');
