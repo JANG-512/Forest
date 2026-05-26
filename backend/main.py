@@ -17,16 +17,21 @@ from app.services.npc_ai.emotion_engine import EmotionEngine
 
 app = FastAPI(title="Cozy Web 3D Sandbox Game - NPC AI Server")
 
-# CORS Configurations
-# IMPORTANT: In production, remove "*" and "null" for security reasons.
-origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "null",
-    "*"
-]
+def configured_origins() -> list[str]:
+    raw = os.getenv("ALLOWED_ORIGINS", "").strip()
+    if raw:
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
+    return [
+        "https://jang-512.github.io",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "null",
+    ]
+
+
+origins = configured_origins()
 
 app.add_middleware(
     CORSMiddleware,
@@ -36,9 +41,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.get("/")
+def get_root():
+    return {
+        "status": "ok",
+        "service": "poko-multiplayer-backend",
+        "health": "/api/health",
+        "rooms": "/api/multiplayer/rooms",
+        "websocket": "/ws/multiplayer/{room_id}",
+    }
+
+
 @app.get("/api/health")
 def get_health():
-    return {"status": "ok", "multiplayer_rooms": len(mp_rooms)}
+    return {
+        "status": "ok",
+        "service": "poko-multiplayer-backend",
+        "multiplayer_rooms": len(mp_rooms),
+    }
 
 
 mp_rooms: Dict[str, Dict[str, WebSocket]] = {}
@@ -99,6 +120,9 @@ async def multiplayer_socket(room_id: str, websocket: WebSocket):
             if data.get("type") == "hello":
                 mp_profiles[room_id][player_id]["name"] = data.get("name") or name
                 mp_profiles[room_id][player_id]["host"] = bool(data.get("host"))
+            if data.get("type") == "ping":
+                await websocket.send_json({"type": "pong", "from": "server", "id": "server", "t": data.get("t")})
+                continue
             data["from"] = player_id
             data["name"] = mp_profiles[room_id][player_id]["name"]
             await mp_broadcast(room_id, data, exclude=player_id)

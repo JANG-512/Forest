@@ -96,12 +96,13 @@ python3 -m http.server 5173
 이후 브라우저에서 `http://localhost:5173/dong.html`에 접속하여 실행할 수 있습니다.
 접속 후 우측 상단의 **[실제 서버로 연동]** 버튼을 클릭하여 `http://localhost:8000` 주소를 사용하는 실제 API 서버 모드로 테스트를 진행해 주세요.
 
-## GitHub Pages 멀티플레이 배포
+## GitHub Pages + Render 멀티플레이 배포
 
-GitHub Pages는 정적 파일만 호스팅하므로 WebSocket 서버를 같이 띄울 수 없습니다. 이 `backend`를 Render, Railway, Fly.io, VM, 또는 Cloud Run 같은 별도 서버에 배포한 뒤 프론트의 멀티플레이 패널에 서버 주소를 입력하세요.
+GitHub Pages는 정적 파일만 호스팅하므로 WebSocket 서버를 같이 띄울 수 없습니다. 이 `backend`를 Render Web Service로 배포하고, GitHub Pages 프론트엔드는 Render의 `wss://` 주소에 연결합니다.
 
 - 로컬 테스트 주소: `ws://localhost:8000`
-- HTTPS 배포 주소 예시: `wss://poko-mp.onrender.com`
-- Render 배포용 예시는 `backend/render.yaml`에 포함되어 있습니다.
+- Render 기본 배포 주소: `wss://poko-multiplayer-backend.onrender.com`
+- Render Blueprint 설정: repository root의 `render.yaml`
+- 상세 배포 가이드: [`backend/RENDER_DEPLOY.md`](./RENDER_DEPLOY.md)
 
-호스트는 멀티플레이 패널에서 서버 URL을 입력하고 **서버 방 열기**를 누른 뒤 섬 코드를 공유합니다. 방문자는 같은 서버 URL을 입력하고 친구의 섬 코드를 넣어 **방문하기**를 누르면 됩니다.
+배포 후 호스트는 멀티플레이 패널에서 **서버 방 열기**를 누른 뒤 섬 코드를 공유합니다. 방문자는 서버 URL을 따로 입력하지 않고 친구의 섬 코드만 입력하면 됩니다.

@@ -41,39 +41,55 @@ window.addEventListener('unhandledrejection', function(event) {
   document.body.appendChild(div);
 });
 </script>
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-content">
 <title>Forest Island 🌿</title>
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="manifest.json?v=2.4">
 <meta name="theme-color" content="#7ec8e3">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Forest Island">
 <link rel="apple-touch-icon" href="icon.svg">
 <meta name="mobile-web-app-capable" content="yes">
+<meta name="format-detection" content="telephone=no">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <style>
+:root{
+  --app-width:100vw;
+  --app-height:100dvh;
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-right:env(safe-area-inset-right,0px);
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+  --safe-left:env(safe-area-inset-left,0px);
+}
+@supports not (height:100dvh){
+  :root{--app-height:100vh}
+}
 *{box-sizing:border-box;margin:0;padding:0}
-body{overflow:hidden;background:#7ec8e3;font-family:'Segoe UI',system-ui,sans-serif;user-select:none}
-#c3d{display:block;width:100vw;height:100vh;filter:saturate(1.08) contrast(1.02) brightness(1.01) sepia(0.025)}
-#ui{position:fixed;inset:0;pointer-events:none}
+html{width:100%;height:100%;overflow:hidden;background:#7ec8e3}
+body{position:fixed;inset:0;width:100%;height:var(--app-height);overflow:hidden;background:#7ec8e3;font-family:'Segoe UI',system-ui,sans-serif;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-text-size-adjust:100%;touch-action:none;overscroll-behavior:none}
+button,input,textarea,select{font:inherit}
+button{touch-action:manipulation}
+#c3d{position:fixed;inset:0;display:block;width:100vw;height:var(--app-height);filter:saturate(1.08) contrast(1.02) brightness(1.01) sepia(0.025)}
+#ui{position:fixed;left:0;top:0;width:100vw;height:var(--app-height);overflow:hidden;pointer-events:none}
 /* HUD */
-#hud-top{position:absolute;top:10px;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;padding:0 14px;gap:8px}
+#hud-top{position:absolute;top:calc(10px + var(--safe-top));left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;padding:0 calc(14px + var(--safe-right)) 0 calc(14px + var(--safe-left));gap:8px}
 .hud-pill{background:rgba(255,255,255,0.92);border-radius:20px;padding:5px 14px;font-size:13px;font-weight:700;color:#3b3028;box-shadow:0 2px 8px rgba(0,0,0,.12);pointer-events:all}
 #bells-pill{display:flex;align-items:center;gap:5px;cursor:default}
 #time-pill{display:flex;align-items:center;gap:6px}
 /* Tool bar */
-#toolbar{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:6px;background:rgba(255,255,255,.92);border-radius:20px;padding:7px 12px;box-shadow:0 2px 12px rgba(0,0,0,.15);pointer-events:all}
-.tool-btn{width:52px;height:52px;border-radius:14px;border:none;background:rgba(255,220,180,.5);cursor:pointer;font-size:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:.15s;position:relative}
+#toolbar{position:absolute;bottom:calc(16px + var(--safe-bottom));left:50%;transform:translateX(-50%);display:flex;gap:6px;background:rgba(255,255,255,.92);border-radius:20px;padding:7px 12px;box-shadow:0 2px 12px rgba(0,0,0,.15);pointer-events:all;max-width:calc(100vw - var(--safe-left) - var(--safe-right) - 18px);overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+#toolbar::-webkit-scrollbar{display:none}
+.tool-btn{width:52px;height:52px;border-radius:14px;border:none;background:rgba(255,220,180,.5);cursor:pointer;font-size:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:.15s;position:relative;flex:0 0 auto}
 .tool-btn.active{background:#ffcc66;box-shadow:0 0 0 3px #e6aa22}
 .tool-btn span{font-size:8px;color:#7a5c2e;font-weight:700;margin-top:1px}
 /* Item bar */
-#itembar{position:absolute;bottom:88px;left:50%;transform:translateX(-50%);display:flex;gap:4px;background:rgba(255,255,255,.88);border-radius:16px;padding:5px 10px;box-shadow:0 2px 10px rgba(0,0,0,.12);pointer-events:all;max-width:90vw;overflow-x:auto}
+#itembar{position:absolute;bottom:calc(88px + var(--safe-bottom));left:50%;transform:translateX(-50%);display:flex;gap:4px;background:rgba(255,255,255,.88);border-radius:16px;padding:5px 10px;box-shadow:0 2px 10px rgba(0,0,0,.12);pointer-events:all;max-width:calc(90vw - var(--safe-left) - var(--safe-right));overflow-x:auto;-webkit-overflow-scrolling:touch}
 .item-slot{width:46px;height:46px;border-radius:10px;border:2px solid rgba(0,0,0,.08);background:rgba(255,240,210,.6);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:20px;cursor:pointer;position:relative;flex-shrink:0}
 .item-slot .qty{position:absolute;bottom:1px;right:3px;font-size:9px;font-weight:800;color:#3b3028}
 .item-slot.selected{border-color:#e6aa22;background:rgba(255,220,100,.5)}
 /* Dialogue */
-#dialogue{position:absolute;bottom:150px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.97);border-radius:18px;padding:16px 22px;max-width:560px;width:90vw;box-shadow:0 4px 20px rgba(0,0,0,.18);pointer-events:all;display:none}
+#dialogue{position:absolute;bottom:calc(150px + var(--safe-bottom));left:50%;transform:translateX(-50%);background:rgba(255,255,255,.97);border-radius:18px;padding:16px 22px;max-width:560px;width:min(90vw,calc(100vw - var(--safe-left) - var(--safe-right) - 20px));box-shadow:0 4px 20px rgba(0,0,0,.18);pointer-events:all;display:none}
 #dialogue .npc-name{font-size:13px;font-weight:800;color:#e6aa22;margin-bottom:5px}
 #dialogue .text{font-size:14px;color:#3b3028;line-height:1.6}
 #dialogue .choices{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px}
@@ -85,7 +101,7 @@ body{overflow:hidden;background:#7ec8e3;font-family:'Segoe UI',system-ui,sans-se
 .choice-btn{background:#7ec8e3;border:none;border-radius:10px;padding:5px 13px;font-size:12px;font-weight:700;color:white;cursor:pointer;transition:.12s}
 .choice-btn:hover{background:#5ab8d8}
 /* Multiplayer chat */
-#mp-chat-panel{position:absolute;bottom:88px;left:14px;width:min(360px,calc(100vw - 28px));background:rgba(255,255,255,.93);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.55);border-radius:16px;padding:10px 12px;box-shadow:0 8px 28px rgba(40,60,80,.18);pointer-events:all;z-index:9;display:none;flex-direction:column;gap:8px;font-size:12px;color:#3b3028}
+#mp-chat-panel{position:absolute;bottom:calc(88px + var(--safe-bottom));left:calc(14px + var(--safe-left));width:min(360px,calc(100vw - var(--safe-left) - var(--safe-right) - 28px));background:rgba(255,255,255,.93);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.55);border-radius:16px;padding:10px 12px;box-shadow:0 8px 28px rgba(40,60,80,.18);pointer-events:all;z-index:9;display:none;flex-direction:column;gap:8px;font-size:12px;color:#3b3028}
 #mp-chat-panel.show{display:flex}
 #mp-chat-head{display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid rgba(0,0,0,.06);padding-bottom:7px}
 #mp-chat-title{font-weight:900;color:#2f3d38;display:flex;align-items:center;gap:6px}
@@ -107,9 +123,9 @@ body{overflow:hidden;background:#7ec8e3;font-family:'Segoe UI',system-ui,sans-se
 #mp-chat-send-btn{background:#5ba3e0;color:white;border:none;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:900;cursor:pointer}
 #mp-chat-send-btn:disabled{background:#c8d5dc;cursor:default}
 /* Panel */
-.panel-overlay{position:absolute;inset:0;background:rgba(0,0,0,.35);pointer-events:all;display:none;align-items:center;justify-content:center}
+.panel-overlay{position:absolute;inset:0;background:rgba(0,0,0,.35);pointer-events:all;display:none;align-items:center;justify-content:center;padding:calc(12px + var(--safe-top)) calc(12px + var(--safe-right)) calc(12px + var(--safe-bottom)) calc(12px + var(--safe-left))}
 .panel-overlay.show{display:flex}
-.panel{background:#fffcf0;border-radius:22px;padding:20px;max-width:420px;width:92vw;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.22)}
+.panel{background:#fffcf0;border-radius:22px;padding:20px;max-width:420px;width:min(92vw,420px);max-height:calc(var(--app-height) - var(--safe-top) - var(--safe-bottom) - 24px);overflow-y:auto;-webkit-overflow-scrolling:touch;box-shadow:0 8px 32px rgba(0,0,0,.22)}
 .panel h2{font-size:16px;font-weight:800;color:#3b3028;margin-bottom:14px;display:flex;align-items:center;gap:8px}
 .close-btn{margin-left:auto;background:rgba(0,0,0,.08);border:none;border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:14px}
 /* Inventory grid */
@@ -131,27 +147,27 @@ body{overflow:hidden;background:#7ec8e3;font-family:'Segoe UI',system-ui,sans-se
 .mslot.donated{border-color:#7ec880;background:rgba(126,200,128,.2)}
 .mslot.empty{filter:grayscale(1) opacity(.3)}
 /* Notification */
-#notif-area{position:absolute;top:56px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:4px;align-items:center;pointer-events:none}
+#notif-area{position:absolute;top:calc(56px + var(--safe-top));left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:4px;align-items:center;pointer-events:none}
 .notif{background:rgba(255,255,255,.95);border-radius:12px;padding:6px 16px;font-size:13px;font-weight:700;color:#3b3028;box-shadow:0 2px 10px rgba(0,0,0,.15);animation:notifAnim 3s ease forwards;white-space:nowrap}
 @keyframes notifAnim{0%{opacity:0;transform:translateY(8px)}10%{opacity:1;transform:translateY(0)}80%{opacity:1}100%{opacity:0;transform:translateY(-8px)}}
 /* Fishing UI */
-#fishing-ui{position:absolute;bottom:170px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.95);border-radius:16px;padding:12px 24px;text-align:center;display:none;pointer-events:none}
+#fishing-ui{position:absolute;bottom:calc(170px + var(--safe-bottom));left:50%;transform:translateX(-50%);background:rgba(255,255,255,.95);border-radius:16px;padding:12px 24px;text-align:center;display:none;pointer-events:none}
 #fishing-ui .fish-hint{font-size:13px;color:#3b3028;font-weight:700}
 #catch-bar{width:200px;height:14px;background:rgba(0,0,0,.1);border-radius:7px;margin:8px auto 0;overflow:hidden;display:none}
 #catch-fill{height:100%;background:linear-gradient(90deg,#7ec880,#3a9e5f);border-radius:7px;width:0%;transition:.1s}
 /* Season banner */
-#season-banner{position:absolute;top:56px;right:14px;background:rgba(255,255,255,.88);border-radius:12px;padding:4px 11px;font-size:11px;font-weight:700;color:#3b3028;display:flex;align-items:center;gap:5px}
+#season-banner{position:absolute;top:calc(56px + var(--safe-top));right:calc(14px + var(--safe-right));background:rgba(255,255,255,.88);border-radius:12px;padding:4px 11px;font-size:11px;font-weight:700;color:#3b3028;display:flex;align-items:center;gap:5px}
 /* Miles */
 #miles-pill{background:rgba(255,200,80,.9);border-radius:20px;padding:5px 14px;font-size:13px;font-weight:700;color:#3b3028;display:flex;align-items:center;gap:4px}
 /* Scrollbar */
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:rgba(0,0,0,.2);border-radius:2px}
 
 /* ── 모바일 조이스틱 ── */
-#joystick-zone{position:absolute;left:0;bottom:0;width:170px;height:170px;pointer-events:all;display:none;touch-action:none}
+#joystick-zone{position:absolute;left:var(--safe-left);bottom:var(--safe-bottom);width:170px;height:170px;pointer-events:all;display:none;touch-action:none}
 #joystick-base{position:absolute;left:22px;bottom:22px;width:118px;height:118px;border-radius:50%;background:rgba(255,255,255,.16);border:2.5px solid rgba(255,255,255,.38);box-shadow:0 2px 16px rgba(0,0,0,.15)}
 #joystick-knob{position:absolute;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.75);border:2.5px solid rgba(255,255,255,.95);box-shadow:0 2px 10px rgba(0,0,0,.22);top:50%;left:50%;transform:translate(-50%,-50%)}
 /* 모바일 액션 버튼 */
-#mobile-btns{position:absolute;right:14px;bottom:16px;display:none;flex-direction:column;gap:9px;align-items:center;pointer-events:all}
+#mobile-btns{position:absolute;right:calc(14px + var(--safe-right));bottom:calc(16px + var(--safe-bottom));display:none;flex-direction:column;gap:9px;align-items:center;pointer-events:all}
 .mob-btn{width:60px;height:60px;border-radius:50%;border:none;font-size:22px;font-weight:900;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,.22);display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;touch-action:manipulation;transition:transform .1s}
 .mob-btn:active{transform:scale(.88)}
 #mb-interact{background:#ffcc44;color:#3b3028;font-size:20px}
@@ -178,38 +194,64 @@ body{overflow:hidden;background:#7ec8e3;font-family:'Segoe UI',system-ui,sans-se
 
 /* ── 세로 모드 기본 (모바일) ── */
 @media(max-width:640px){
-  #toolbar{bottom:186px;gap:3px;padding:5px 8px}
-  .tool-btn{width:44px;height:44px;font-size:17px}
-  #itembar{bottom:140px;max-width:78vw}
-  #hud-top{padding:0 10px}
-  #dialogue{bottom:160px}
-  #fishing-ui{bottom:190px}
+  input,textarea,select{font-size:16px!important}
+  #ai-setting-pill,#debug-dashboard{display:none!important}
+  #toolbar{bottom:calc(184px + var(--safe-bottom));gap:3px;padding:5px 8px;border-radius:16px}
+  .tool-btn{width:clamp(38px,11.4vw,44px);height:44px;font-size:17px}
+  .tool-btn span{font-size:7px}
+  #itembar{bottom:calc(116px + var(--safe-bottom));max-width:min(78vw,340px)}
+  html.touch-device #toolbar{left:calc(10px + var(--safe-left));right:calc(78px + var(--safe-right));transform:none;max-width:none}
+  html.touch-device #itembar{left:calc(148px + var(--safe-left));right:calc(76px + var(--safe-right));bottom:calc(18px + var(--safe-bottom));transform:none;max-width:none}
+  #hud-top{padding:0 calc(10px + var(--safe-right)) 0 calc(10px + var(--safe-left))}
+  .hud-pill{font-size:12px;padding:5px 10px}
+  #dialogue{bottom:calc(154px + var(--safe-bottom));max-height:38vh;overflow-y:auto}
+  #fishing-ui{bottom:calc(184px + var(--safe-bottom))}
+  #mp-chat-panel{left:calc(10px + var(--safe-left));right:calc(10px + var(--safe-right));bottom:calc(114px + var(--safe-bottom));width:auto;max-height:44vh}
+  #mp-chat-log{height:min(116px,24vh)}
+  .panel{width:100%;padding:16px;border-radius:18px}
+}
+
+@media(max-width:360px){
+  #toolbar{bottom:calc(176px + var(--safe-bottom))}
+  .tool-btn{width:38px;height:40px;font-size:16px}
+  .tool-btn span{display:none}
+  #itembar{bottom:calc(108px + var(--safe-bottom))}
+  html.touch-device #toolbar{right:calc(72px + var(--safe-right))}
+  html.touch-device #itembar{left:calc(136px + var(--safe-left));right:calc(72px + var(--safe-right))}
+  .mob-btn{width:56px;height:56px}
 }
 
 /* ── 가로 모드 (landscape, 높이 520px 이하) ── */
 @media(orientation:landscape) and (max-height:520px){
   /* 툴바: 상단 중앙으로 이동, 라벨 숨김 */
-  #toolbar{top:6px;bottom:auto;padding:4px 8px;gap:3px;border-radius:16px}
+  #toolbar{top:calc(8px + var(--safe-top));bottom:auto;padding:4px 8px;gap:3px;border-radius:16px;max-width:min(48vw,360px)}
   .tool-btn{width:38px;height:38px;font-size:15px}
   .tool-btn span{display:none}
   /* 아이템바: 하단 중간 영역 */
-  #itembar{bottom:6px;left:160px;right:170px;transform:none;max-width:none;overflow-x:auto}
+  #itembar{bottom:calc(8px + var(--safe-bottom));left:calc(138px + var(--safe-left));right:calc(150px + var(--safe-right));transform:none;max-width:none;overflow-x:auto}
   /* 조이스틱: 작게 */
-  #joystick-zone{width:140px;height:140px}
+  #joystick-zone{width:132px;height:132px}
   #joystick-base{left:12px;bottom:12px;width:100px;height:100px}
   #joystick-knob{width:40px;height:40px}
   /* 모바일 버튼: 하단 오른쪽, 작게 */
-  #mobile-btns{bottom:8px;right:10px;gap:6px}
-  .mob-btn{width:50px;height:50px;font-size:18px}
+  html.touch-device #mobile-btns{display:grid!important;grid-template-columns:repeat(2,48px);gap:6px;align-items:end;bottom:calc(8px + var(--safe-bottom));right:calc(8px + var(--safe-right))}
+  .mob-btn{width:48px;height:48px;font-size:18px}
+  #mb-cam-wrap{grid-column:1 / span 2;display:flex;justify-content:center;gap:6px}
   #mb-cam-l,#mb-cam-r{width:42px;height:42px;font-size:15px}
   /* HUD 컴팩트 */
-  #hud-top{padding:0 8px;top:6px}
+  #hud-top{left:calc(8px + var(--safe-left));right:auto;top:calc(6px + var(--safe-top));padding:0;flex-direction:column;align-items:flex-start;gap:4px}
   .hud-pill{padding:3px 10px;font-size:11px}
-  #season-banner{top:40px;right:8px;font-size:10px;padding:2px 8px}
-  #notif-area{top:42px}
+  #season-banner{top:calc(6px + var(--safe-top));right:calc(8px + var(--safe-right));font-size:10px;padding:2px 8px}
+  #ai-setting-pill,#debug-dashboard{display:none!important}
+  #notif-area{top:calc(62px + var(--safe-top))}
   /* 대화창, 낚시 */
-  #dialogue{bottom:70px}
-  #fishing-ui{bottom:90px}
+  #dialogue{bottom:calc(70px + var(--safe-bottom));max-height:42vh;overflow-y:auto}
+  #fishing-ui{bottom:calc(90px + var(--safe-bottom))}
+  #mp-chat-panel{left:calc(140px + var(--safe-left));bottom:calc(58px + var(--safe-bottom));width:min(320px,calc(100vw - 300px - var(--safe-left) - var(--safe-right)));max-height:46vh}
+  #mp-chat-log{height:min(96px,22vh)}
+  .panel-overlay{align-items:flex-start}
+  .panel{max-width:min(520px,calc(100vw - var(--safe-left) - var(--safe-right) - 24px));width:100%;max-height:calc(var(--app-height) - var(--safe-top) - var(--safe-bottom) - 24px);padding:14px;border-radius:18px}
+  .panel h2{font-size:14px;margin-bottom:10px}
 }
 </style>
 </head>
@@ -229,7 +271,7 @@ body{overflow:hidden;background:#7ec8e3;font-family:'Segoe UI',system-ui,sans-se
   <div id="season-banner"><span id="season-icon">🌸</span><span id="season-name">봄</span></div>
   
   <!-- AI 백엔드 연동 세팅 -->
-  <div id="ai-setting-pill" style="position:absolute;top:92px;right:14px;background:rgba(255,255,255,0.92);border-radius:12px;padding:6px 10px;font-size:11px;font-weight:700;color:#3b3028;display:flex;flex-direction:column;gap:4px;box-shadow:0 2px 8px rgba(0,0,0,0.1);pointer-events:all;z-index:10">
+  <div id="ai-setting-pill" style="position:absolute;top:calc(92px + var(--safe-top));right:calc(14px + var(--safe-right));background:rgba(255,255,255,0.92);border-radius:12px;padding:6px 10px;font-size:11px;font-weight:700;color:#3b3028;display:flex;flex-direction:column;gap:4px;box-shadow:0 2px 8px rgba(0,0,0,0.1);pointer-events:all;z-index:10">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
       <span>🔌 AI 연동:</span>
       <span id="ai-conn-badge" style="background:#d4edda;color:#155724;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:800">시뮬레이터</span>
@@ -239,7 +281,7 @@ body{overflow:hidden;background:#7ec8e3;font-family:'Segoe UI',system-ui,sans-se
   </div>
 
   <!-- 실시간 NPC AI 감정/관계 대시보드 -->
-  <div id="debug-dashboard" style="position:absolute;left:14px;top:70px;width:230px;background:rgba(255,255,255,0.94);border-radius:18px;border:2px solid #e6aa22;padding:12px;box-shadow:0 4px 16px rgba(0,0,0,0.12);pointer-events:all;z-index:9;display:none;font-size:11px">
+  <div id="debug-dashboard" style="position:absolute;left:calc(14px + var(--safe-left));top:calc(70px + var(--safe-top));width:230px;background:rgba(255,255,255,0.94);border-radius:18px;border:2px solid #e6aa22;padding:12px;box-shadow:0 4px 16px rgba(0,0,0,0.12);pointer-events:all;z-index:9;display:none;font-size:11px">
     <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(0,0,0,0.08);padding-bottom:5px;margin-bottom:8px">
       <span style="font-weight:800;color:#3b3028">📊 실시간 NPC 스태이터스</span>
       <button id="minimize-debug" style="margin-left:auto;background:none;border:none;color:#e6aa22;font-weight:bold;cursor:pointer;font-size:10px">접기 [-]</button>
@@ -441,6 +483,6 @@ body{overflow:hidden;background:#7ec8e3;font-family:'Segoe UI',system-ui,sans-se
   </div>
 </div>
 
-<script type="module" src="js/main.js?v=2.3"></script>
+<script type="module" src="js/main.js?v=2.4"></script>
 </body>
 </html>
