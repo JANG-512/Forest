@@ -31,16 +31,16 @@ scene.add(exteriorRoot);
 
 // ─── 조명 ────────────────────────────────────────────────────
 // 따뜻하고 자연스러운 조명 조합 (Ambient 살구빛 + Hemisphere 하늘빛/지면 반사광)
-const ambLight = new THREE.AmbientLight(0xffebd2, 0.42);
+const ambLight = new THREE.AmbientLight(0xffebd2, 0.35);
 scene.add(ambLight);
-const hemiLight = new THREE.HemisphereLight(0xc4f2ff, 0xb98840, 0.52);
+const hemiLight = new THREE.HemisphereLight(0xc4f2ff, 0xb98840, 0.65);
 scene.add(hemiLight);
-const sunLight = new THREE.DirectionalLight(0xfff5e0, 1.18);
+const sunLight = new THREE.DirectionalLight(0xfff5e0, 1.25);
 sunLight.castShadow = true;
 sunLight.shadow.mapSize.set(2048,2048);
-sunLight.shadow.camera.left=-80; sunLight.shadow.camera.right=80;
-sunLight.shadow.camera.top=80;   sunLight.shadow.camera.bottom=-80;
-sunLight.shadow.camera.far=200;  sunLight.shadow.bias=-0.00025; // soft shadow bias
+sunLight.shadow.camera.left=-22; sunLight.shadow.camera.right=22;
+sunLight.shadow.camera.top=22;   sunLight.shadow.camera.bottom=-22;
+sunLight.shadow.camera.far=200;  sunLight.shadow.bias=-0.0008; // 고해상도 그림자 적정 bias
 scene.add(sunLight); scene.add(sunLight.target);
 const moonLight = new THREE.DirectionalLight(0x8090c0, 0.0);
 moonLight.position.set(-30,50,-30); scene.add(moonLight);

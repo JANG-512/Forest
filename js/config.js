@@ -11,8 +11,8 @@ export const T = Object.freeze({
 });
 
 export const WW = 48, WH = 48, CS = 1.8;
-export const CAM_EL = 0.58;
-export const CAM_DST = 26;
+export const CAM_EL = 0.52;
+export const CAM_DST = 18;
 export const SAVE_KEY = 'forest_island_v1';
 
 // ─── 아이템 데이터베이스 ─────────────────────────────────────

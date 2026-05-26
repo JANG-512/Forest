@@ -19,52 +19,54 @@ export function buildNPC(vi) {
 
   const limbs={};
   const g = buildCharacter(lighter, bc, darker, bc, 0x3a2a1a, limbs, true);
+  const visualGroup = g.userData.visualGroup || g;
+  
   // 동물별 특징 추가 (넨도로이드 머리 높이 y=1.28에 맞춤)
   if(vi.type==='bunny'){
     [-0.15,0.15].forEach(ex=>{
       // 토끼 귀
       const earO=mesh(new THREE.CylinderGeometry(0.06,0.08,0.5,7),bc);
-      earO.position.set(ex,1.72,0); earO.rotation.z=ex>0?-0.13:0.13; g.add(earO);
+      earO.position.set(ex,1.72,0); earO.rotation.z=ex>0?-0.13:0.13; visualGroup.add(earO);
       const earI=mesh(new THREE.CylinderGeometry(0.03,0.05,0.42,6),0xffb0bb);
-      earI.position.set(ex,1.72,0.045); earI.rotation.z=ex>0?-0.13:0.13; g.add(earI);
+      earI.position.set(ex,1.72,0.045); earI.rotation.z=ex>0?-0.13:0.13; visualGroup.add(earI);
     });
     // 둥글고 납작한 토끼 코
     const nose=mesh(new THREE.SphereGeometry(0.042,6,5),0xffaacc,false);
-    nose.position.set(0,1.20,0.44); g.add(nose);
+    nose.position.set(0,1.20,0.44); visualGroup.add(nose);
     // 솜꼬리
     const tail=mesh(new THREE.SphereGeometry(0.08,6,5),0xffffff);
-    tail.position.set(0,0.52,-0.2); g.add(tail);
+    tail.position.set(0,0.52,-0.2); visualGroup.add(tail);
   } else if(vi.type==='bear'){
     // 곰 귀
     [-0.24,0.24].forEach(ex=>{
       const earO=mesh(new THREE.SphereGeometry(0.12,8,6),bc);
-      earO.position.set(ex,1.66,0); g.add(earO);
+      earO.position.set(ex,1.66,0); visualGroup.add(earO);
       const earI=mesh(new THREE.SphereGeometry(0.07,7,5),lighter);
-      earI.position.set(ex,1.66,0.05); g.add(earI);
+      earI.position.set(ex,1.66,0.05); visualGroup.add(earI);
     });
     // 곰 주둥이
     const muzzle=mesh(new THREE.SphereGeometry(0.14,9,7),lighter);
-    muzzle.scale.set(1.1,0.78,0.68); muzzle.position.set(0,1.15,0.36); g.add(muzzle);
+    muzzle.scale.set(1.1,0.78,0.68); muzzle.position.set(0,1.15,0.36); visualGroup.add(muzzle);
     const blackNose=mesh(new THREE.SphereGeometry(0.035,5,4),0x222222,false);
-    blackNose.position.set(0,1.19,0.45); g.add(blackNose);
+    blackNose.position.set(0,1.19,0.45); visualGroup.add(blackNose);
     // 곰 꼬리
     const tail=mesh(new THREE.SphereGeometry(0.08,6,5),bc);
-    tail.position.set(0,0.52,-0.2); g.add(tail);
+    tail.position.set(0,0.52,-0.2); visualGroup.add(tail);
   } else if(vi.type==='frog'){
     // 개구리 큰 왕눈이 (입체적으로 위로 솟구침)
     [-0.2,0.2].forEach(ex=>{
       const eb=mesh(new THREE.SphereGeometry(0.14,9,7),bc);
-      eb.position.set(ex,1.48,0.08); g.add(eb);
+      eb.position.set(ex,1.48,0.08); visualGroup.add(eb);
       const ew=mesh(new THREE.SphereGeometry(0.09,8,6),0xffffff,false);
-      ew.position.set(ex,1.49,0.18); g.add(ew);
+      ew.position.set(ex,1.49,0.18); visualGroup.add(ew);
       const ep=mesh(new THREE.SphereGeometry(0.055,6,5),0x111111,false);
-      ep.position.set(ex,1.49,0.23); g.add(ep);
+      ep.position.set(ex,1.49,0.23); visualGroup.add(ep);
       const hl=mesh(new THREE.SphereGeometry(0.02,4,3),0xffffff,false);
-      hl.position.set(ex+0.02,1.52,0.24); g.add(hl);
+      hl.position.set(ex+0.02,1.52,0.24); visualGroup.add(hl);
     });
     // 개구리 시그니처 큰 미소 입꼬리
     const fSmile=mesh(new THREE.TorusGeometry(0.1,0.022,6,10,Math.PI),0x3a2a1a,false);
-    fSmile.rotation.z=Math.PI; fSmile.position.set(0,1.11,0.4); g.add(fSmile);
+    fSmile.rotation.z=Math.PI; fSmile.position.set(0,1.11,0.4); visualGroup.add(fSmile);
   }
 
   // FIX: 집 타일 위가 아니라 집에서 남쪽으로 2칸 떨어진 곳에 스폰

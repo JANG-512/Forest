@@ -57,6 +57,9 @@ function gameLoop(ts){
     TEXTURES.water.offset.y += 0.0006 * dt;
     TEXTURES.water.offset.x += 0.0002 * dt;
   }
+  if (TEXTURES.waterMaterial && TEXTURES.waterMaterial.uniforms) {
+    TEXTURES.waterMaterial.uniforms.time.value = performance.now() * 0.001;
+  }
 
   // 바람에 살랑살랑 흔들리는 풀잎 애니메이션
   if (G.grassBlades) {
