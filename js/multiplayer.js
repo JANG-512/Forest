@@ -2,7 +2,7 @@
 // multiplayer.js — PeerJS WebRTC 멀티플레이
 // ═══════════════════════════════════════════════════════════════
 import { G } from './game.js';
-import { CS } from './config.js';
+import { CS, DEFAULT_MULTIPLAYER_SERVER } from './config.js';
 import { buildCharacter, animateLimbs } from './character.js';
 import { disposeMesh } from './renderer.js';
 import { tileH, generateWorld, buildGround } from './world.js';
@@ -26,6 +26,10 @@ function ensureMPState(){
     G.MP.roomId = savedRoom || Math.random().toString(36).slice(2,8).toUpperCase();
     safeStorageSet('forest_island_room_id', G.MP.roomId);
   }
+}
+
+function localPlayerId(){
+  return G.MP.serverId || G.MP.myId || G.MP.roomId;
 }
 
 export function initMultiplayer(){
@@ -98,7 +102,7 @@ function broadcast(data, exceptPeerId=null){
 function playerPayload(extra={}){
   return {
     protocol:PROTOCOL_VERSION,
-    id:G.MP.serverId || G.MP.myId || G.MP.roomId,
+    id:localPlayerId(),
     name:G.MP.playerName,
     x:G.playerPos.x,
     z:G.playerPos.z,
@@ -110,8 +114,10 @@ function playerPayload(extra={}){
 }
 
 export function copyIslandCode(){
-  const code=getServerUrl() ? G.MP.roomId : G.MP.myId;
+  const serverUrl=getServerUrl();
+  const code=serverUrl ? G.MP.roomId : G.MP.myId;
   if(!code){ notify('아직 코드가 준비되지 않았어요!'); return; }
+  if(serverUrl && !isServerOpen() && !G.MP.visitingMode) connectServerRoom(G.MP.roomId, true);
   navigator.clipboard?.writeText(code).catch(()=>{});
   notify('섬 코드가 복사되었어요!');
 }
@@ -121,13 +127,13 @@ export function joinFriendIsland(){
   const inp=document.getElementById('mp-join-input');
   const hostId=inp?.value?.trim();
   if(!hostId){ notify('섬 코드를 입력해 주세요!'); return; }
-  if(!G.MP.peer){ notify('멀티 연결이 초기화되지 않았어요.'); return; }
   const serverUrl=getServerUrl();
   if(hostId===G.MP.myId || (serverUrl && hostId===G.MP.roomId)){ notify('내 섬 코드에는 접속할 수 없어요.'); return; }
   if(serverUrl){
     connectServerRoom(hostId, false);
     return;
   }
+  if(!G.MP.peer){ notify('멀티 연결이 초기화되지 않았어요.'); return; }
   disconnectMP(true);
   mpSetStatus('연결 중...');
   appendChatLog('system','친구 섬으로 이동 중...');
@@ -181,7 +187,7 @@ function getServerUrl(){
     safeStorageSet('forest_island_mp_server', uiValue);
     return uiValue;
   }
-  const saved=safeStorageGet('forest_island_mp_server') || '';
+  const saved=safeStorageGet('forest_island_mp_server') || DEFAULT_MULTIPLAYER_SERVER || '';
   if(inp && saved) inp.value=saved;
   return saved;
 }
@@ -397,7 +403,7 @@ function sendWorld(conn){
 
 function getRosterPayload(){
   ensureMPState();
-  const roster=[{id:G.MP.myId, name:G.MP.playerName, host:G.MP.isHost}];
+  const roster=[{id:localPlayerId(), name:G.MP.playerName, host:G.MP.isHost}];
   G.MP.remoteProfiles.forEach((profile,id)=>{
     if(id!==G.MP.myId) roster.push({id, name:profile.name||'친구', host:!!profile.host});
   });
@@ -510,7 +516,7 @@ function loadHostWorld(data){
 }
 
 function rememberProfile(id, name, host=false){
-  if(!id || id===G.MP.myId) return;
+  if(!id || id===G.MP.myId || id===G.MP.serverId) return;
   ensureMPState();
   const prev=G.MP.remoteProfiles.get(id)||{};
   G.MP.remoteProfiles.set(id,{...prev, name:name||prev.name||'친구', host:!!host, lastSeen:Date.now()});
@@ -519,7 +525,7 @@ function rememberProfile(id, name, host=false){
 }
 
 function displayName(id){
-  if(id===G.MP.myId) return '나';
+  if(id===G.MP.myId || id===G.MP.serverId) return '나';
   return G.MP.remoteProfiles.get(id)?.name || G.MP.remotePlayers.get(id)?.name || '친구';
 }
 
@@ -651,7 +657,7 @@ export function updateMultiplayer(dt){
   G.MP.heartbeatTimer=(G.MP.heartbeatTimer||0)+dt;
   if(G.MP.heartbeatTimer>180 && hasOpenConnections()){
     G.MP.heartbeatTimer=0;
-    const ping={type:'ping', t:Date.now(), id:G.MP.myId, name:G.MP.playerName};
+    const ping={type:'ping', t:Date.now(), id:localPlayerId(), name:G.MP.playerName};
     if(isServerOpen()) sendServer(ping);
     else if(G.MP.isHost) broadcast(ping);
     else sendTo(G.MP.conn, ping);

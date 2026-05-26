@@ -10,7 +10,7 @@ import { enterBuilding, exitBuilding, INTERIOR } from './interior.js';
 import { addItem, addMiles, checkMilestone, saveState } from './state.js';
 import { notify, updateUI, spawnParticles, talkTo, openShop, openMuseum, openNookHQ, openHouseMenu, selectTool } from './ui.js';
 import { mat, mesh, disposeMesh } from './renderer.js';
-import { isBuildingDoorSide, moveWithWorldCollisions } from './collision.js';
+import { isBuildingDoorSide, moveWithWorldCollisions, nudgeOutOfBuilding, isWorldPointWalkable } from './collision.js';
 
 // ─── 키보드 입력 ─────────────────────────────────────────────
 export function initControls(){
@@ -161,6 +161,13 @@ export function updatePlayer(dt) {
     G.moveAccum+=dt;
     const stepInterval = isRunning ? 10 : 18;
     if(G.moveAccum>stepInterval){G.moveAccum=0;playSound('step');}
+  }
+  if(!G.inInterior){
+    const nudged = nudgeOutOfBuilding(G.playerPos.x, G.playerPos.z, 0.28, {walkable:WALKABLE, allowDoorApproach:true});
+    if(nudged.nudged && isWorldPointWalkable(nudged.x, nudged.z, 0.28, {walkable:WALKABLE, allowDoorApproach:true})){
+      G.playerPos.x = nudged.x;
+      G.playerPos.z = nudged.z;
+    }
   }
 
   const th = G.inInterior ? INTERIOR.FLOOR_Y : tileH(Math.round(G.playerPos.x/CS),Math.round(G.playerPos.z/CS));

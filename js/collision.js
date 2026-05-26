@@ -9,11 +9,11 @@ export const BUILDING_TYPES = new Set([
 ]);
 
 const BODY = {
-  [T.SHOP]:           { hx:CS*0.98, hz:CS*0.88, doorHalf:CS*0.26, doorDepth:CS*0.20 },
-  [T.MUSEUM]:         { hx:CS*1.08, hz:CS*0.98, doorHalf:CS*0.30, doorDepth:CS*0.24 },
-  [T.NOOK_HQ]:        { hx:CS*0.98, hz:CS*0.94, doorHalf:CS*0.28, doorDepth:CS*0.22 },
-  [T.PLAYER_HOUSE]:   { hx:CS*0.78, hz:CS*0.82, doorHalf:CS*0.26, doorDepth:CS*0.24 },
-  [T.VILLAGER_HOUSE]: { hx:CS*0.74, hz:CS*0.76, doorHalf:CS*0.24, doorDepth:CS*0.22 },
+  [T.SHOP]:           { hx:CS*0.84, hz:CS*0.72, doorHalf:CS*0.30, doorDepth:CS*0.30 },
+  [T.MUSEUM]:         { hx:CS*0.92, hz:CS*0.82, doorHalf:CS*0.34, doorDepth:CS*0.32 },
+  [T.NOOK_HQ]:        { hx:CS*0.84, hz:CS*0.76, doorHalf:CS*0.32, doorDepth:CS*0.30 },
+  [T.PLAYER_HOUSE]:   { hx:CS*0.60, hz:CS*0.64, doorHalf:CS*0.30, doorDepth:CS*0.34 },
+  [T.VILLAGER_HOUSE]: { hx:CS*0.58, hz:CS*0.60, doorHalf:CS*0.28, doorDepth:CS*0.32 },
 };
 
 export function isBuildingTile(t){
@@ -44,16 +44,43 @@ function nearbyBuildingBoxes(px, pz){
   return boxes;
 }
 
+function isDoorPocket(px, pz, radius, box, allowDoorApproach){
+  if(!allowDoorApproach) return false;
+  const dx = px - box.x;
+  const dz = pz - box.z;
+  return dz > box.hz - box.doorDepth - radius * 0.35 && Math.abs(dx) < box.doorHalf + radius * 0.35;
+}
+
 function blockedByBox(px, pz, radius, box, allowDoorApproach){
   const dx = px - box.x;
   const dz = pz - box.z;
   const inside = Math.abs(dx) < box.hx + radius && Math.abs(dz) < box.hz + radius;
   if(!inside) return false;
-  if(allowDoorApproach){
-    const inFrontDoorPocket = dz > box.hz - box.doorDepth && Math.abs(dx) < box.doorHalf;
-    if(inFrontDoorPocket) return false;
-  }
+  if(isDoorPocket(px,pz,radius,box,allowDoorApproach)) return false;
   return true;
+}
+
+function resolveAgainstBuildings(px, pz, radius, opts={}){
+  let x=px, z=pz, nudged=false;
+  const allowDoorApproach = opts.allowDoorApproach !== false;
+  for(let pass=0; pass<4; pass++){
+    let changed=false;
+    nearbyBuildingBoxes(x,z).forEach(box=>{
+      if(!blockedByBox(x,z,radius,box,allowDoorApproach)) return;
+      const dx=x-box.x, dz=z-box.z;
+      const pushX=(box.hx+radius)-Math.abs(dx);
+      const pushZ=(box.hz+radius)-Math.abs(dz);
+      if(pushX < pushZ){
+        x += (dx>=0?1:-1) * (pushX + 0.035);
+      } else {
+        z += (dz>=0?1:-1) * (pushZ + 0.035);
+      }
+      changed=true;
+      nudged=true;
+    });
+    if(!changed) break;
+  }
+  return {x,z,nudged};
 }
 
 export function hitsBuildingCollision(px, pz, radius=0.28, opts={}){
@@ -71,28 +98,17 @@ export function isWorldPointWalkable(px, pz, radius=0.28, opts={}){
 }
 
 export function moveWithWorldCollisions(cx, cz, nx, nz, radius=0.28, opts={}){
-  if(isWorldPointWalkable(nx,nz,radius,opts)) return {x:nx,z:nz,moved:true,blocked:false};
+  const full = resolveAgainstBuildings(nx,nz,radius,opts);
+  if(isWorldPointWalkable(full.x,full.z,radius,opts)) return {x:full.x,z:full.z,moved:true,blocked:full.nudged};
   let x = cx;
   let z = cz;
-  if(isWorldPointWalkable(nx,cz,radius,opts)) x = nx;
-  if(isWorldPointWalkable(x,nz,radius,opts)) z = nz;
+  const axisX = resolveAgainstBuildings(nx,cz,radius,opts);
+  if(isWorldPointWalkable(axisX.x,axisX.z,radius,opts)) x = axisX.x;
+  const axisZ = resolveAgainstBuildings(x,nz,radius,opts);
+  if(isWorldPointWalkable(axisZ.x,axisZ.z,radius,opts)) z = axisZ.z;
   return {x,z,moved:x!==cx||z!==cz,blocked:true};
 }
 
 export function nudgeOutOfBuilding(px, pz, radius=0.28, opts={}){
-  let x=px, z=pz, nudged=false;
-  const allowDoorApproach = opts.allowDoorApproach !== false;
-  nearbyBuildingBoxes(x,z).forEach(box=>{
-    if(!blockedByBox(x,z,radius,box,allowDoorApproach)) return;
-    const dx=x-box.x, dz=z-box.z;
-    const pushX=(box.hx+radius)-Math.abs(dx);
-    const pushZ=(box.hz+radius)-Math.abs(dz);
-    if(pushX < pushZ){
-      x += (dx>=0?1:-1) * (pushX + 0.02);
-    } else {
-      z += (dz>=0?1:-1) * (pushZ + 0.02);
-    }
-    nudged=true;
-  });
-  return {x,z,nudged};
+  return resolveAgainstBuildings(px,pz,radius,opts);
 }

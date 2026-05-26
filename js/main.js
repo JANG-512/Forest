@@ -85,6 +85,33 @@ function gameLoop(ts){
 }
 
 // ─── 부팅 ────────────────────────────────────────────────────
+function installServiceWorker(){
+  if(!('serviceWorker' in navigator)) return;
+  let refreshing=false;
+  navigator.serviceWorker.addEventListener('controllerchange', ()=>{
+    if(refreshing) return;
+    refreshing=true;
+    window.location.reload();
+  });
+
+  navigator.serviceWorker.register('./sw.js',{scope:'./', updateViaCache:'none'})
+    .then(reg=>{
+      console.log('[PWA] SW registered, scope:',reg.scope);
+      reg.update().catch(()=>{});
+      if(reg.waiting) reg.waiting.postMessage({type:'SKIP_WAITING'});
+      reg.addEventListener('updatefound', ()=>{
+        const sw=reg.installing;
+        if(!sw) return;
+        sw.addEventListener('statechange', ()=>{
+          if(sw.state==='installed' && navigator.serviceWorker.controller){
+            sw.postMessage({type:'SKIP_WAITING'});
+          }
+        });
+      });
+    })
+    .catch(e=>console.warn('[PWA] SW register failed:',e));
+}
+
 function boot(){
   loadState();          // G.gs 설정
   generateWorld();      // G.world 생성
@@ -119,11 +146,7 @@ function boot(){
   requestAnimationFrame(gameLoop);
 
   // ── PWA 서비스 워커 등록 ──
-  if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('./sw.js',{scope:'./'})
-      .then(r=>console.log('[PWA] SW registered, scope:',r.scope))
-      .catch(e=>console.warn('[PWA] SW register failed:',e));
-  }
+  installServiceWorker();
 }
 
 boot();

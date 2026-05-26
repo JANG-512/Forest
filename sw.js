@@ -1,9 +1,6 @@
-// Forest Island — Service Worker v18
-const CACHE_NAME = 'forest-island-v18';
-const CORE_URLS = ['./','./index.html','./manifest.json','./icon.svg','./icon-maskable.svg',
-  './js/config.js','./js/game.js','./js/renderer.js','./js/world.js','./js/audio.js',
-  './js/character.js','./js/interior.js','./js/npc.js','./js/player.js','./js/ui.js',
-  './js/state.js','./js/multiplayer.js','./js/textures.js','./js/collision.js','./js/main.js'];
+// Forest Island service worker
+// Network-first by design: GitHub Pages deploys should not require Cmd+Shift+R.
+const CACHE_NAME = 'forest-island-v19';
 const CDN_URLS = [
   'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
   'https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js',
@@ -13,16 +10,11 @@ self.addEventListener('install', e => {
   self.skipWaiting();
   e.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME);
-    // Cache same-origin assets
-    await cache.addAll(CORE_URLS);
-    // Cache CDN resources with no-cors (opaque responses)
     for (const url of CDN_URLS) {
       try {
-        const res = await fetch(url, { mode: 'no-cors' });
+        const res = await fetch(url, { mode: 'no-cors', cache: 'reload' });
         await cache.put(url, res);
-      } catch (err) {
-        console.warn('[SW] Could not pre-cache CDN:', url, err.message);
-      }
+      } catch (err) {}
     }
   })());
 });
@@ -35,25 +27,35 @@ self.addEventListener('activate', e => {
   );
 });
 
+self.addEventListener('message', e => {
+  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
 self.addEventListener('fetch', e => {
-  // Skip non-GET and browser-extension requests
   if (e.request.method !== 'GET') return;
   if (!e.request.url.startsWith('http')) return;
 
-  e.respondWith(
-    caches.match(e.request).then(cached => {
+  const url = new URL(e.request.url);
+  const sameOrigin = url.origin === self.location.origin;
+
+  if (!sameOrigin) {
+    e.respondWith(
+      fetch(e.request).catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
+  e.respondWith((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    try {
+      const res = await fetch(e.request, { cache: 'no-store' });
+      if (res && res.status === 200) cache.put(e.request, res.clone());
+      return res;
+    } catch (err) {
+      const cached = await cache.match(e.request);
       if (cached) return cached;
-      return fetch(e.request).then(res => {
-        // Cache successful same-origin responses
-        if (res && res.status === 200 && new URL(e.request.url).origin === self.location.origin) {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
-        }
-        return res;
-      }).catch(() => {
-        // Offline fallback: return cached index for navigation requests
-        if (e.request.mode === 'navigate') return caches.match('./');
-      });
-    })
-  );
+      if (e.request.mode === 'navigate') return cache.match('./index.html') || cache.match('./');
+      throw err;
+    }
+  })());
 });

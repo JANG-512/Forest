@@ -14,6 +14,7 @@ export const WW = 48, WH = 48, CS = 1.8;
 export const CAM_EL = 0.42;
 export const CAM_DST = 12.8;
 export const SAVE_KEY = 'forest_island_v1';
+export const DEFAULT_MULTIPLAYER_SERVER = 'wss://poko-multiplayer-backend.onrender.com';
 
 // ─── 아이템 데이터베이스 ─────────────────────────────────────
 export const ITEMS = {
