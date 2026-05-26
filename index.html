@@ -55,7 +55,7 @@ window.addEventListener('unhandledrejection', function(event) {
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{overflow:hidden;background:#7ec8e3;font-family:'Segoe UI',system-ui,sans-serif;user-select:none}
-#c3d{display:block;width:100vw;height:100vh;filter:saturate(1.22) contrast(1.04) brightness(1.06) sepia(0.035)}
+#c3d{display:block;width:100vw;height:100vh;filter:saturate(1.08) contrast(1.02) brightness(1.01) sepia(0.025)}
 #ui{position:fixed;inset:0;pointer-events:none}
 /* HUD */
 #hud-top{position:absolute;top:10px;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;padding:0 14px;gap:8px}
@@ -73,12 +73,39 @@ body{overflow:hidden;background:#7ec8e3;font-family:'Segoe UI',system-ui,sans-se
 .item-slot .qty{position:absolute;bottom:1px;right:3px;font-size:9px;font-weight:800;color:#3b3028}
 .item-slot.selected{border-color:#e6aa22;background:rgba(255,220,100,.5)}
 /* Dialogue */
-#dialogue{position:absolute;bottom:150px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.97);border-radius:18px;padding:16px 22px;max-width:520px;width:90vw;box-shadow:0 4px 20px rgba(0,0,0,.18);pointer-events:all;display:none}
+#dialogue{position:absolute;bottom:150px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.97);border-radius:18px;padding:16px 22px;max-width:560px;width:90vw;box-shadow:0 4px 20px rgba(0,0,0,.18);pointer-events:all;display:none}
 #dialogue .npc-name{font-size:13px;font-weight:800;color:#e6aa22;margin-bottom:5px}
 #dialogue .text{font-size:14px;color:#3b3028;line-height:1.6}
 #dialogue .choices{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px}
+#dlg-log{display:none;max-height:170px;overflow-y:auto;margin:7px 0 10px;padding:8px;border-radius:12px;background:rgba(255,245,225,.72);gap:6px;flex-direction:column}
+.dlg-msg{max-width:86%;padding:7px 10px;border-radius:12px;font-size:12px;line-height:1.45;color:#3b3028;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.dlg-msg.npc{align-self:flex-start;background:#fffdf5;border-top-left-radius:5px}
+.dlg-msg.player{align-self:flex-end;background:#dff2ff;border-top-right-radius:5px}
+.dlg-msg .speaker{display:block;font-size:9px;font-weight:800;color:#9a7a36;margin-bottom:2px}
 .choice-btn{background:#7ec8e3;border:none;border-radius:10px;padding:5px 13px;font-size:12px;font-weight:700;color:white;cursor:pointer;transition:.12s}
 .choice-btn:hover{background:#5ab8d8}
+/* Multiplayer chat */
+#mp-chat-panel{position:absolute;bottom:88px;left:14px;width:min(360px,calc(100vw - 28px));background:rgba(255,255,255,.93);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.55);border-radius:16px;padding:10px 12px;box-shadow:0 8px 28px rgba(40,60,80,.18);pointer-events:all;z-index:9;display:none;flex-direction:column;gap:8px;font-size:12px;color:#3b3028}
+#mp-chat-panel.show{display:flex}
+#mp-chat-head{display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid rgba(0,0,0,.06);padding-bottom:7px}
+#mp-chat-title{font-weight:900;color:#2f3d38;display:flex;align-items:center;gap:6px}
+#mp-conn-pill{font-size:9px;font-weight:900;letter-spacing:.4px;border-radius:999px;padding:2px 7px;background:#eee;color:#777}
+#mp-conn-pill.online{background:#dff5df;color:#2b8a3e}
+#mp-conn-pill.host{background:#fff1bf;color:#9a6a00}
+#mp-chat-close{width:24px;height:24px;border:none;border-radius:8px;background:rgba(0,0,0,.06);color:#5a5148;font-weight:900;cursor:pointer}
+#mp-roster,#mp-roster-panel{display:flex;gap:5px;flex-wrap:wrap}
+.mp-chip{border-radius:999px;background:rgba(126,200,227,.18);border:1px solid rgba(90,160,190,.18);padding:3px 8px;font-size:10px;font-weight:800;color:#345}
+#mp-chat-log{height:138px;overflow-y:auto;display:flex;flex-direction:column;gap:5px;color:#555;padding-right:2px}
+.mp-msg{max-width:86%;padding:6px 9px;border-radius:12px;line-height:1.35;word-break:break-word;background:#f6f0df;box-shadow:0 1px 5px rgba(0,0,0,.05)}
+.mp-msg.me{align-self:flex-end;background:#dff2ff;border-top-right-radius:5px}
+.mp-msg.friend{align-self:flex-start;background:#fff8e5;border-top-left-radius:5px}
+.mp-msg.system{align-self:center;max-width:96%;background:transparent;box-shadow:none;color:#8a7c68;font-size:10px;text-align:center}
+.mp-msg b{display:block;font-size:9px;margin-bottom:2px;color:#4f7a95}
+#mp-chat-input-row{display:flex;gap:6px}
+#mp-chat-input{flex:1;padding:8px 10px;border:1px solid rgba(0,0,0,.12);border-radius:10px;font-size:12px;outline:none;background:rgba(255,255,255,.96);color:#3b3028}
+#mp-chat-input:focus{border-color:#5ba3e0;box-shadow:0 0 0 3px rgba(91,163,224,.16)}
+#mp-chat-send-btn{background:#5ba3e0;color:white;border:none;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:900;cursor:pointer}
+#mp-chat-send-btn:disabled{background:#c8d5dc;cursor:default}
 /* Panel */
 .panel-overlay{position:absolute;inset:0;background:rgba(0,0,0,.35);pointer-events:all;display:none;align-items:center;justify-content:center}
 .panel-overlay.show{display:flex}
@@ -296,26 +323,24 @@ body{overflow:hidden;background:#7ec8e3;font-family:'Segoe UI',system-ui,sans-se
   <!-- 대화 -->
   <div id="dialogue">
     <div class="npc-name" id="dlg-name"></div>
+    <div id="dlg-log"></div>
     <div class="text" id="dlg-text"></div>
-    
-    <!-- 텍스트 채팅 입력창 (FastAPI NPC AI 연동을 위해 임베딩) -->
-    <div id="dlg-chat-container" style="display:flex;gap:6px;margin:12px 0 6px 0;border-top:1px solid rgba(0,0,0,0.06);padding-top:10px;pointer-events:all">
-      <input type="text" id="dlg-chat-input" placeholder="대답을 입력하세요..." maxlength="80" style="flex:1;padding:8px 12px;border:2px solid rgba(0,0,0,0.08);border-radius:10px;font-size:13px;outline:none;background:rgba(255,255,255,0.9);color:#3b3028">
-      <button id="dlg-chat-send-btn" class="choice-btn" style="background:#e6aa22;font-size:12px;padding:8px 14px">보내기 💬</button>
-    </div>
-    
     <div class="choices" id="dlg-choices"></div>
   </div>
 
   <!-- 멀티플레이어 채팅 패널 -->
-  <div id="mp-chat-panel" style="position:absolute;bottom:88px;left:14px;width:240px;background:rgba(255,255,255,0.85);backdrop-filter:blur(6px);border-radius:14px;padding:8px 12px;box-shadow:0 3px 12px rgba(0,0,0,0.12);pointer-events:all;z-index:9;display:none;flex-direction:column;gap:5px;font-size:11px">
-    <div style="font-weight:bold;color:#3b3028;border-bottom:1px solid rgba(0,0,0,0.06);padding-bottom:3px;margin-bottom:3px">🌍 섬 주민 채팅</div>
-    <div id="mp-chat-log" style="height:100px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;margin-bottom:3px;color:#555">
-      <div style="color:#aaa;font-style:italic">방에 연결되면 대화를 나눌 수 있어요.</div>
+  <div id="mp-chat-panel" aria-live="polite">
+    <div id="mp-chat-head">
+      <div id="mp-chat-title">멀티 채팅 <span id="mp-conn-pill">OFFLINE</span></div>
+      <button id="mp-chat-close" type="button" onclick="toggleMultiplayerChat(false)">×</button>
     </div>
-    <div style="display:flex;gap:4px">
-      <input type="text" id="mp-chat-input" placeholder="메시지 입력..." maxlength="60" style="flex:1;padding:4.5px 8px;border:1px solid rgba(0,0,0,0.15);border-radius:6px;font-size:9.5px;outline:none;background:rgba(255,255,255,0.9);color:#3b3028">
-      <button id="mp-chat-send-btn" style="background:#5ba3e0;color:white;border:none;border-radius:6px;padding:4.5px 8px;font-size:9.5px;font-weight:bold;cursor:pointer">전송</button>
+    <div id="mp-roster"></div>
+    <div id="mp-chat-log">
+      <div class="mp-msg system">친구 섬에 연결하면 이 창에서 대화할 수 있어요.</div>
+    </div>
+    <div id="mp-chat-input-row">
+      <input type="text" id="mp-chat-input" placeholder="멀티플레이 메시지..." maxlength="120" autocomplete="off">
+      <button id="mp-chat-send-btn" type="button">전송</button>
     </div>
   </div>
 
@@ -392,10 +417,20 @@ body{overflow:hidden;background:#7ec8e3;font-family:'Segoe UI',system-ui,sans-se
         <button class="mp-btn" id="mp-copy-btn" onclick="copyIslandCode()">📋 코드 복사하기</button>
       </div>
       <div class="mp-section">
+        <h3>멀티플레이 서버</h3>
+        <input id="mp-server-input" type="text" placeholder="wss://your-server.example.com" autocomplete="off" autocorrect="off" spellcheck="false" style="width:100%;padding:9px 12px;border-radius:10px;border:2px solid rgba(0,0,0,.1);font-size:12px;margin-bottom:7px;font-family:monospace;outline:none">
+        <button class="mp-btn" id="mp-open-server-btn" onclick="openMultiplayerRoom()">서버 방 열기</button>
+      </div>
+      <div class="mp-section">
         <h3>✈️ 친구 섬 방문</h3>
         <input id="mp-join-input" type="text" placeholder="친구의 섬 코드 입력..." maxlength="64" autocomplete="off" autocorrect="off" spellcheck="false">
         <button class="mp-btn" id="mp-join-btn" onclick="joinFriendIsland()">🚀 방문하기</button>
         <button class="mp-btn" id="mp-disc-btn" onclick="disconnectMP()">👋 섬 떠나기</button>
+      </div>
+      <div class="mp-section">
+        <h3>현재 접속</h3>
+        <div id="mp-roster-panel"><span class="mp-chip">나</span></div>
+        <button class="mp-btn" id="mp-chat-toggle-btn" onclick="toggleMultiplayerChat(true)">채팅 열기</button>
       </div>
       <div id="mp-status">PeerJS 서버 연결 중...</div>
       <div style="margin-top:10px;padding:10px;background:rgba(0,0,0,.04);border-radius:10px;font-size:11px;color:#999;line-height:1.6">
@@ -406,6 +441,6 @@ body{overflow:hidden;background:#7ec8e3;font-family:'Segoe UI',system-ui,sans-se
   </div>
 </div>
 
-<script type="module" src="js/main.js?v=2.0"></script>
+<script type="module" src="js/main.js?v=2.2"></script>
 </body>
 </html>

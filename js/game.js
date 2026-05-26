@@ -6,7 +6,7 @@ import { CS } from './config.js';
 export const G = {
   // Three.js (set by renderer.js)
   scene: null, camera: null, renderer: null,
-  ambLight: null, sunLight: null, moonLight: null,
+  ambLight: null, hemiLight: null, sunLight: null, moonLight: null,
 
   // Root groups for exterior/interior toggling
   exteriorRoot: null,  // all exterior tile groups go here
@@ -46,13 +46,23 @@ export const G = {
   inInterior: false,
   interiorBuilding: null,  // {type, bx, by}
   interiorExitPos: null,   // {x, z} world coords to return to on exit
+  interiorRoot: null,      // separate interior world root
   interiorMeshes: [],      // meshes to remove on exit
+  transitioning: false,
 
   // Particles
   particles3d: [],
 
   // Multiplayer
-  MP: {peer:null, myId:null, conn:null, isHost:false, visitingMode:false, remoteMesh:null, remoteLimbs:{}, remoteTarget:null, syncTimer:0},
+  MP: {
+    peer:null, myId:null, playerName:null,
+    roomId:null, serverUrl:null, ws:null, serverId:null,
+    conn:null, conns:new Map(),
+    isHost:false, visitingMode:false,
+    remotePlayers:new Map(), remoteProfiles:new Map(),
+    remoteMesh:null, remoteLimbs:{}, remoteTarget:null,
+    syncTimer:0, heartbeatTimer:0, latency:0,
+  },
 
   // Tick counter
   tick: 0,

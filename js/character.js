@@ -23,12 +23,15 @@ export function buildCharacter(skinC, shirtC, pantsC, hairC, shoeC, limbsOut, is
     const shadowMat = new THREE.MeshBasicMaterial({
       map: TEXTURES.shadowBlob,
       transparent: true,
-      opacity: 0.65,
-      depthWrite: false
+      opacity: 0.5,
+      depthWrite: false,
+      alphaTest: 0.02,
+      color: 0x5a6388
     });
     const shadowMesh = new THREE.Mesh(shadowGeom, shadowMat);
     shadowMesh.rotation.x = -Math.PI / 2;
     shadowMesh.position.y = 0.005; // 지면보다 아주 살짝 위
+    shadowMesh.scale.set(1.12, 0.72, 1);
     shadowMesh.userData.isShadow = true;
     g.add(shadowMesh);
     g.userData.shadowMesh = shadowMesh;
@@ -170,7 +173,13 @@ export function buildCharacter(skinC, shirtC, pantsC, hairC, shoeC, limbsOut, is
   // 카툰 외곽선(Cartoon Outline) 적용
   applyCartoonOutline(visualGroup);
 
-  g.castShadow = true;
+  visualGroup.traverse(c => {
+    if (c.isMesh) {
+      c.castShadow = false;
+      c.receiveShadow = false;
+    }
+  });
+  g.castShadow = false;
   return g;
 }
 

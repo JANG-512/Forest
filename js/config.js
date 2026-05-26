@@ -11,8 +11,8 @@ export const T = Object.freeze({
 });
 
 export const WW = 48, WH = 48, CS = 1.8;
-export const CAM_EL = 0.52;
-export const CAM_DST = 18;
+export const CAM_EL = 0.42;
+export const CAM_DST = 12.8;
 export const SAVE_KEY = 'forest_island_v1';
 
 // ─── 아이템 데이터베이스 ─────────────────────────────────────
@@ -59,6 +59,11 @@ export const ITEMS = {
   furniture1: {name:'나무의자',   emoji:'🪑', cat:'furniture', price:800, sell:400},
   furniture2: {name:'꽃화분',     emoji:'🪴', cat:'furniture', price:600, sell:300},
   furniture3: {name:'낚시의자',   emoji:'⛺', cat:'furniture', price:1200,sell:600},
+  garden_lamp:{name:'정원등',     emoji:'🏮', cat:'furniture', price:1400,sell:700},
+  tea_set:    {name:'티 세트',     emoji:'🍵', cat:'furniture', price:900, sell:450},
+  picnic_blanket:{name:'피크닉 매트',emoji:'🧺', cat:'furniture', price:1100,sell:550},
+  wall_clock: {name:'벽시계',     emoji:'🕰️',cat:'furniture', price:1500,sell:750},
+  plant_fern: {name:'고사리 화분', emoji:'🌿', cat:'furniture', price:700, sell:350},
   medicine:   {name:'약',         emoji:'💊', cat:'tool',   price:400, sell:0},
   shovel_item:{name:'삽',         emoji:'⛏️', cat:'tool',  price:2500, sell:0},
   axe_item:   {name:'도끼',       emoji:'🪓', cat:'tool',   price:2500, sell:0},
@@ -102,6 +107,8 @@ export const MILE_ACHIEVEMENTS = [
 export const SHOP_CATALOG = [
   {id:'seed_flower',qty:5},{id:'seed_tree',qty:3},{id:'medicine',qty:3},
   {id:'furniture1',qty:1},{id:'furniture2',qty:1},{id:'furniture3',qty:1},
+  {id:'garden_lamp',qty:1},{id:'tea_set',qty:1},{id:'picnic_blanket',qty:1},
+  {id:'wall_clock',qty:1},{id:'plant_fern',qty:1},
   {id:'shovel_item',qty:1},{id:'axe_item',qty:1},{id:'rod_item',qty:1},{id:'net_item',qty:1},
 ];
 
@@ -128,7 +135,7 @@ export const TILE_COLORS = {
 
 export const TILE_HEIGHT = {
   [T.OCEAN]:-0.3, [T.BEACH]:0.02, [T.GRASS]:0.08,
-  [T.CLIFF]:0.8, [T.PATH]:0.10, [T.BRIDGE]:0.10,
+  [T.CLIFF]:0.8, [T.PATH]:0.08, [T.BRIDGE]:0.10,
   [T.RIVER]:-0.1, [T.WATERFALL]:0.4, [T.FLOWER]:0.08,
   [T.TREE]:0.08, [T.ROCK]:0.08, [T.DIG_SPOT]:0.08,
   [T.SHOP]:0.08, [T.MUSEUM]:0.08, [T.NOOK_HQ]:0.08,

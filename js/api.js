@@ -26,13 +26,13 @@ export class ApiClient {
   static serverUrl = "http://localhost:8000";
 
   // exponential backoff 구현한 API 호출 메서드
-  static async talkToNpc(playerId, npcId, message) {
+  static async talkToNpc(playerId, npcId, message, context = {}) {
     if (this.isLocalMode) {
-      return await this.simulateLocalResponse(npcId, message);
+      return await this.simulateLocalResponse(npcId, message, context);
     }
 
     const url = `${this.serverUrl}/api/npc-ai/talk`;
-    const body = JSON.stringify({ player_id: playerId, npc_id: npcId, message: message });
+    const body = JSON.stringify({ player_id: playerId, npc_id: npcId, message: message, context });
     
     try {
       return await this.fetchWithRetry(url, {
@@ -45,7 +45,7 @@ export class ApiClient {
       if (window.notify) {
         window.notify(`⚠️ 서버 통신 실패 (시뮬레이터 전환 또는 서버 점검 필요)`);
       }
-      return this.getFallbackResponse(npcId);
+      return this.getFallbackResponse(npcId, context);
     }
   }
 
@@ -68,72 +68,77 @@ export class ApiClient {
   }
 
   // 로컬 감정 시뮬레이터 (백엔드 AI 작동 방식을 에뮬레이트하여 오프라인 상태 지원)
-  static async simulateLocalResponse(npcId, message) {
-    await new Promise(resolve => setTimeout(resolve, 800)); // 연산 딜레이 모방
+  static async simulateLocalResponse(npcId, message, context = {}) {
+    await new Promise(resolve => setTimeout(resolve, 450)); // 연산 딜레이 모방
     
-    const npcName = NPC_PROFILES[npcId]?.name || "주민";
-    let emotion = "comfortable";
-    let reply = "";
-    let friendship = 0;
-    let trust = 0;
-    let affection = 0;
-    let conflict = 0;
+    const profile = NPC_PROFILES[npcId] || {};
+    const npcName = profile.name || "주민";
+    const intent = context.intent || inferIntent(message);
+    const friendshipLevel = context.friendshipLevel || 0;
+    const memory = context.memory || {};
+    const recent = memory.lastTopic ? ` 지난번엔 ${memory.lastTopic} 얘기를 했었지.` : '';
+    const weatherTone = context.hour >= 18 ? '저녁 공기가 부드러워서' : '햇살이 좋아서';
+    let emotion = context.emotion || "comfortable";
+    let friendship = 1, trust = 0, affection = 0, conflict = 0;
+    let reply;
 
-    // 키워드 분석을 통한 단순형 임시 AI 분석 (로컬 시뮬레이션용)
-    if (message.includes("안녕") || message.includes("하이") || message.includes("반가워")) {
-      reply = `안녕안녕! ${npcName}(이)야. 오늘도 섬 산책 중이야? 만나서 진짜 반가워!`;
-      emotion = "happy";
-      friendship = 1;
-    } else if (message.includes("기분") || message.includes("어때")) {
-      reply = `기분? 완전 끝내주지! 바람도 시원하고 모든 게 완벽해!`;
-      emotion = "excited";
-      friendship = 2;
+    const nameTail = npcName === '테디' ? '라고' : '라고';
+    if(intent === 'greet'){
+      emotion = friendshipLevel > 4 ? 'happy' : 'comfortable';
       trust = 1;
-    } else if (message.includes("슬퍼") || message.includes("우울")) {
-      reply = `에구... 무슨 일 있어? 얘기해 봐, 들어줄게. 난 항상 네 편이야.`;
-      emotion = "sad";
-      friendship = 1;
-      affection = 2;
-    } else if (message.includes("화남") || message.includes("짜증") || message.includes("싫어")) {
-      reply = `앗... 네 눈빛을 보니까 내가 다 긴장되는걸? 내게 서운한 점이 있는 거야?`;
-      emotion = "shy";
-      conflict = 1;
-    } else if (message.includes("바보") || message.includes("메롱")) {
-      reply = `쳇, 장난이 좀 심한걸? 그런 얄미운 말 하면 나 삐질 거야!`;
+      reply = friendshipLevel > 4
+        ? `또 만나서 좋다! ${weatherTone} 오늘은 네가 올 것 같았어.${recent}`
+        : `안녕, ${npcName}${nameTail} 해. 오늘 섬을 천천히 둘러보는 중이야.`;
+    } else if(intent === 'mood'){
+      emotion = context.needs?.social > 65 ? 'excited' : 'happy';
+      friendship = 2; trust = 1;
+      reply = `기분은 꽤 좋아. ${weatherTone} 마음이 가벼워졌거든. 네가 말 걸어주니까 더 좋아졌어.`;
+    } else if(intent === 'island_news'){
+      emotion = 'comfortable';
+      trust = 2;
+      const topic = memory.heardTopic || context.favoritePlace || '강가';
+      reply = `오늘은 ${topic} 쪽이 유난히 조용했어. 나중에 다 같이 앉을 수 있는 작은 벤치가 있으면 좋겠더라.`;
+    } else if(intent === 'help'){
+      emotion = 'excited';
+      friendship = 2; trust = 1;
+      reply = `도와줄 마음이 있다니 든든하다. 꽃밭 근처 잡초를 조금 정리하거나, 물가에 예쁜 조개를 놓으면 섬 분위기가 훨씬 살아날 거야.`;
+    } else if(intent === 'compliment'){
+      emotion = 'shy';
+      friendship = 2; affection = 2;
+      reply = `그렇게 말해주면 조금 부끄럽잖아. 그래도 고마워. 오늘 하루 오래 기억할 것 같아.`;
+    } else if(intent === 'bye'){
+      emotion = 'comfortable';
+      reply = `응, 또 보자. 다음에 만나면 내가 먼저 인사할게.`;
+    } else if(message.includes("바보") || message.includes("메롱")) {
       emotion = "angry";
-      conflict = 2;
-      friendship = -1;
-    } else if (message.includes("사랑") || message.includes("좋아")) {
-      reply = `헉... 그렇게 훅 들어오면 나 너무 부끄럽단 말이야... 히히, 고마워!`;
-      emotion = "shy";
-      affection = 3;
-      friendship = 2;
+      conflict = 2; friendship = -1;
+      reply = `그 말은 조금 속상해. 장난이어도 다정하게 말해주면 좋겠어.`;
     } else {
-      reply = `"${message}"라니, 역시 넌 되게 개성 있고 재미있는 이야기를 잘하는 것 같아.`;
+      reply = `"${message}"라니 흥미로운데. 네가 보는 섬은 나랑 조금 다를지도 모르겠다. 더 들려줘.`;
       emotion = "neutral";
-      friendship = 1;
     }
 
     return {
       npc_id: npcId,
       reply: reply,
-      intent: "simulate_talk",
+      intent,
       emotion: emotion,
       relationship_change: { friendship, trust, affection, conflict },
-      memory_created: Math.random() > 0.7,
+      memory_created: intent !== 'bye',
+      memory_text: intent !== 'bye' ? `${message}` : '',
       npc_state: {
-        happiness: Math.floor(Math.random() * 40) + 60,
-        sadness: Math.floor(Math.random() * 20),
+        happiness: emotion === "happy" || emotion === "excited" ? 82 : Math.floor(Math.random() * 24) + 55,
+        sadness: emotion === "sad" ? 45 : Math.floor(Math.random() * 18),
         anger: emotion === "angry" ? 50 : Math.floor(Math.random() * 10),
-        stress: Math.floor(Math.random() * 30) + 10,
-        loneliness: Math.floor(Math.random() * 40),
+        stress: emotion === "comfortable" ? 12 : Math.floor(Math.random() * 26) + 8,
+        loneliness: Math.max(0, 35 - friendshipLevel * 3),
         excitement: emotion === "excited" ? 80 : Math.floor(Math.random() * 40) + 10
       }
     };
   }
 
   // 서버 연결 및 Fallback 발생 시 제공될 최후의 보루 대사
-  static getFallbackResponse(npcId) {
+  static getFallbackResponse(npcId, context = {}) {
     const fallbacks = {
       lily: "어라? 웅덩이에 물이 고여서 소리가 잘 안 들려요. 개골...",
       teddy: "으르렁... 노안이 왔나 귀가 잘 안 들리는구먼. 나중에 얘기하자고!",
@@ -143,11 +148,20 @@ export class ApiClient {
     return {
       npc_id: npcId,
       reply: fallbacks[npcId] || "...",
-      intent: "fallback_recovery",
+      intent: context.intent || "fallback_recovery",
       emotion: "neutral",
       relationship_change: { friendship: 0, trust: 0, affection: 0, conflict: 0 },
       memory_created: false,
       npc_state: { happiness: 40, sadness: 20, anger: 10, stress: 50, loneliness: 60, excitement: 10 }
     };
   }
+}
+
+function inferIntent(message){
+  if(message.includes('안녕')||message.includes('반가')) return 'greet';
+  if(message.includes('기분')||message.includes('어때')) return 'mood';
+  if(message.includes('소식')||message.includes('무슨 일')) return 'island_news';
+  if(message.includes('도와')||message.includes('할 일')) return 'help';
+  if(message.includes('좋아')||message.includes('멋져')||message.includes('고마워')) return 'compliment';
+  return 'free_talk';
 }

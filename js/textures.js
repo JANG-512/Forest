@@ -35,51 +35,52 @@ export function initTextures() {
   grassBumpCanvas.height = 128;
   const gbCtx = grassBumpCanvas.getContext('2d');
 
-  // 베이스: 따뜻한 잔디 녹색
-  gCtx.fillStyle = '#65b83b';
+  gCtx.fillStyle = '#70bd4c';
   gCtx.fillRect(0, 0, 128, 128);
 
-  // 하이트맵 베이스: 중간값
   gbCtx.fillStyle = '#888888';
   gbCtx.fillRect(0, 0, 128, 128);
 
-  // 입체감 노이즈 필링
-  for (let i = 0; i < 128; i += 4) {
-    for (let j = 0; j < 128; j += 4) {
-      const noiseVal = Math.random();
-      const r = Math.floor(95 + noiseVal * 16);
-      const g = Math.floor(180 + noiseVal * 22);
-      const b = Math.floor(52 + noiseVal * 12);
-      gCtx.fillStyle = `rgb(${r},${g},${b})`;
-      gCtx.fillRect(i, j, 4, 4);
+  const grassPalette = ['#8bd85c', '#78c94c', '#67b73e', '#59a437', '#a5df68', '#76be55'];
+  for (let i = 0; i < 900; i++) {
+    const x = Math.random() * 128;
+    const y = Math.random() * 128;
+    const len = 2 + Math.random() * 8;
+    const ang = -Math.PI / 2 + (Math.random() - 0.5) * 1.2;
+    const col = grassPalette[Math.floor(Math.random() * grassPalette.length)];
+    gCtx.strokeStyle = col;
+    gCtx.globalAlpha = 0.16 + Math.random() * 0.34;
+    gCtx.lineWidth = 0.6 + Math.random() * 0.9;
+    gCtx.beginPath();
+    gCtx.moveTo(x, y);
+    gCtx.quadraticCurveTo(
+      x + Math.cos(ang) * len * 0.35,
+      y + Math.sin(ang) * len * 0.35,
+      x + Math.cos(ang) * len,
+      y + Math.sin(ang) * len
+    );
+    gCtx.stroke();
 
-      const bumpVal = Math.floor(125 + noiseVal * 35);
-      gbCtx.fillStyle = `rgb(${bumpVal},${bumpVal},${bumpVal})`;
-      gbCtx.fillRect(i, j, 4, 4);
-    }
+    const bumpVal = 132 + Math.floor(Math.random() * 62);
+    gbCtx.strokeStyle = `rgb(${bumpVal},${bumpVal},${bumpVal})`;
+    gbCtx.globalAlpha = 0.28;
+    gbCtx.lineWidth = 1;
+    gbCtx.beginPath();
+    gbCtx.moveTo(x, y);
+    gbCtx.lineTo(x + Math.cos(ang) * len, y + Math.sin(ang) * len);
+    gbCtx.stroke();
   }
+  gCtx.globalAlpha = 1;
+  gbCtx.globalAlpha = 1;
 
-  // 동물의 숲 스타일의 귀여운 세모 격자 무늬
-  function drawTri(ctx, x, y, size) {
-    ctx.beginPath();
-    ctx.moveTo(x, y + size);
-    ctx.lineTo(x - size, y - size);
-    ctx.lineTo(x + size, y - size);
-    ctx.closePath();
-    ctx.fill();
-  }
-
-  gCtx.fillStyle = '#54a02d'; // 선명한 어두운 녹색 세모
-  gbCtx.fillStyle = '#bbbbbb'; // 튀어나온 부분
-
-  for (let i = 0; i < 4; i++) {
-    for (let j = 0; j < 4; j++) {
-      const cx = i * 32 + 16;
-      const cy = j * 32 + 16;
-      const offset = (j % 2 === 0) ? 0 : 8;
-      drawTri(gCtx, cx + offset, cy, 5.5);
-      drawTri(gbCtx, cx + offset, cy, 5.5);
-    }
+  for (let i = 0; i < 150; i++) {
+    const x = Math.random() * 128;
+    const y = Math.random() * 128;
+    const r = 0.6 + Math.random() * 1.8;
+    gCtx.fillStyle = Math.random() > 0.5 ? 'rgba(255,232,125,0.38)' : 'rgba(58,125,45,0.26)';
+    gCtx.beginPath();
+    gCtx.ellipse(x, y, r * 1.8, r, Math.random() * Math.PI, 0, Math.PI * 2);
+    gCtx.fill();
   }
 
   TEXTURES.grass = new THREE.CanvasTexture(grassCanvas);
@@ -206,10 +207,10 @@ export function initTextures() {
   const shCtx = shadowCanvas.getContext('2d');
   shCtx.clearRect(0, 0, 64, 64);
   const grad = shCtx.createRadialGradient(32, 32, 0, 32, 32, 32);
-  grad.addColorStop(0, 'rgba(0, 0, 0, 0.78)');     // 중앙부 접지 AO
-  grad.addColorStop(0.3, 'rgba(0, 0, 0, 0.42)');
-  grad.addColorStop(0.7, 'rgba(0, 0, 0, 0.12)');
-  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');        // 외곽 투명
+  grad.addColorStop(0, 'rgba(43, 49, 87, 0.46)');
+  grad.addColorStop(0.35, 'rgba(50, 61, 98, 0.26)');
+  grad.addColorStop(0.72, 'rgba(60, 77, 116, 0.075)');
+  grad.addColorStop(1, 'rgba(60, 77, 116, 0)');
   shCtx.fillStyle = grad;
   shCtx.beginPath();
   shCtx.arc(32, 32, 32, 0, Math.PI * 2);
@@ -224,16 +225,21 @@ export function initTextures() {
     varying vec3 vNormal;
     varying vec2 vUv;
     varying vec3 vViewPosition;
+    varying float vWave;
     uniform float time;
 
     void main() {
       vUv = uv;
       vNormal = normalize(normalMatrix * normal);
       
-      // 장난감 물결 높이 물리 요동 애니메이션
       vec3 pos = position;
-      float wave = sin(pos.x * 2.5 + time * 1.6) * 0.016 + cos(pos.y * 2.5 + time * 1.3) * 0.016;
-      pos.z += wave; // PlaneGeometry의 z좌표를 변형
+      vec4 baseWorld = modelMatrix * vec4(position, 1.0);
+      float waveA = sin(baseWorld.x * 1.7 + time * 1.85) * 0.024;
+      float waveB = cos((baseWorld.z + baseWorld.x * 0.4) * 2.15 - time * 1.45) * 0.018;
+      float waveC = sin((baseWorld.x - baseWorld.z) * 3.6 + time * 0.95) * 0.008;
+      float wave = waveA + waveB + waveC;
+      pos.z += wave;
+      vWave = wave;
       
       vec4 worldPosition = modelMatrix * vec4(pos, 1.0);
       vWorldPosition = worldPosition.xyz;
@@ -275,47 +281,38 @@ export function initTextures() {
       vec3 viewDir = normalize(vViewPosition);
       vec3 normal = normalize(vNormal);
       
-      // 시간 흐름에 따른 물결 패턴 생성
-      vec2 uv = vUv * 5.0;
-      float n1 = noise(uv + vec2(time * 0.12, time * 0.08));
-      float n2 = noise(uv * 1.6 - vec2(time * 0.08, -time * 0.12));
+      vec2 waterUv = vWorldPosition.xz;
+      float n1 = noise(waterUv * 1.4 + vec2(time * 0.16, time * 0.10));
+      float n2 = noise(waterUv * 2.6 - vec2(time * 0.10, -time * 0.14));
       float wavePattern = (n1 + n2) * 0.5;
       
       // 프레넬 효과 계산 (가장자리에 비치는 은은한 하늘빛 반사)
-      float fresnel = pow(1.0 - max(dot(normal, viewDir), 0.0), 3.0);
+      float fresnel = pow(1.0 - max(dot(normal, viewDir), 0.0), 2.25);
       
       // 깊은 물색과 하늘색 반사광을 혼합
-      vec3 baseColor = mix(waterColor, skyColor, fresnel * 0.45);
+      vec3 baseColor = mix(waterColor, skyColor, fresnel * 0.55);
+      baseColor = mix(baseColor, vec3(0.42, 0.86, 0.92), wavePattern * 0.2);
       
-      // 만화 스타일 포말 무늬 (Stylized Wave Foam Pattern)
-      float foamThreshold = 0.56;
-      float foamVal = noise(uv * 2.2 + vec2(time * 0.2, time * 0.15));
-      float isFoam = step(foamThreshold, foamVal * wavePattern);
-      vec3 colorWithWave = mix(baseColor, foamColor, isFoam * 0.32);
+      float stripeA = sin((waterUv.x + waterUv.y * 0.8) * 5.8 + time * 1.8) * 0.5 + 0.5;
+      float stripeB = sin((waterUv.x * -0.7 + waterUv.y) * 7.2 - time * 1.35) * 0.5 + 0.5;
+      float softLine = smoothstep(0.80, 0.94, stripeA * stripeB) * 0.26;
+      vec3 colorWithWave = mix(baseColor, foamColor, softLine);
       
       // 태양광 Specular 하이라이트 (물 표면 반짝임)
       vec3 halfDir = normalize(sunDirection + viewDir);
-      float spec = pow(max(dot(normal, halfDir), 0.0), 64.0);
-      vec3 specular = sunColor * spec * 0.65;
+      float spec = pow(max(dot(normal, halfDir), 0.0), 48.0);
+      vec3 specular = sunColor * spec * 0.48;
       
       vec3 finalColor = colorWithWave + specular;
-      
-      // 타일 가장자리 포말 경계선 효과 (UV 활용)
-      float edgeDistX = min(vUv.x, 1.0 - vUv.x);
-      float edgeDistY = min(vUv.y, 1.0 - vUv.y);
-      float edgeDist = min(edgeDistX, edgeDistY);
-      float edgeFoam = smoothstep(0.06, 0.0, edgeDist);
-      finalColor = mix(finalColor, foamColor, edgeFoam * 0.55);
-      
-      gl_FragColor = vec4(finalColor, 0.82); // 반투명 설정
+      gl_FragColor = vec4(finalColor, 0.94);
     }
   `;
 
   TEXTURES.waterMaterial = new THREE.ShaderMaterial({
     uniforms: {
       time: { value: 0.0 },
-      waterColor: { value: new THREE.Color(0x389cc0) }, // 맑고 시원한 청록빛
-      skyColor: { value: new THREE.Color(0x7ec8e3) },   // 하늘 반사 색상
+      waterColor: { value: new THREE.Color(0x39b3c6) }, // 맑고 시원한 청록빛
+      skyColor: { value: new THREE.Color(0xa7ddf2) },   // 하늘 반사 색상
       foamColor: { value: new THREE.Color(0xffffff) },  // 하얀 포말
       sunDirection: { value: new THREE.Vector3(20.0, 40.0, 15.0).normalize() },
       sunColor: { value: new THREE.Color(0xfff5e0) }
@@ -323,6 +320,7 @@ export function initTextures() {
     vertexShader: waterVertexShader,
     fragmentShader: waterFragmentShader,
     transparent: true,
-    depthWrite: false
+    depthWrite: true,
+    side: THREE.DoubleSide
   });
 }

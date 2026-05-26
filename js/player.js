@@ -10,10 +10,16 @@ import { enterBuilding, exitBuilding, INTERIOR } from './interior.js';
 import { addItem, addMiles, checkMilestone, saveState } from './state.js';
 import { notify, updateUI, spawnParticles, talkTo, openShop, openMuseum, openNookHQ, openHouseMenu, selectTool } from './ui.js';
 import { mat, mesh, disposeMesh } from './renderer.js';
+import { isBuildingDoorSide, moveWithWorldCollisions } from './collision.js';
 
 // ─── 키보드 입력 ─────────────────────────────────────────────
 export function initControls(){
   document.addEventListener('keydown',e=>{
+    const tag=e.target?.tagName;
+    if(tag==='INPUT'||tag==='TEXTAREA'){
+      if(e.code==='Escape') e.target.blur();
+      return;
+    }
     G.keys[e.code]=true;
     if(e.code==='KeyQ') rotateCam(-1);
     if(e.code==='KeyE' && !G.dialogueOpen) tryInteract();
@@ -101,7 +107,7 @@ export function initMobileControls(){
 
 // ─── 플레이어 이동 ───────────────────────────────────────────
 export function updatePlayer(dt) {
-  if(G.dialogueOpen) return;
+  if(G.dialogueOpen || G.transitioning) return;
   const isRunning = G.playerRunning || !!(G.keys['ShiftLeft']||G.keys['ShiftRight']);
   const spd = isRunning ? 0.088 : 0.045;
   // 카메라 기준 방향 벡터
@@ -145,10 +151,11 @@ export function updatePlayer(dt) {
       if(nx>=minX&&nx<=maxX) G.playerPos.x=nx;
       if(nz>=minZ&&nz<=maxZ) G.playerPos.z=nz;
     } else {
-      const tx=Math.round(nx/CS), tz=Math.round(nz/CS);
-      if(WALKABLE.has(getTile(tx,tz))){
-        G.playerPos.x=nx; G.playerPos.z=nz;
-      }
+      const moved = moveWithWorldCollisions(
+        G.playerPos.x, G.playerPos.z, nx, nz, 0.28,
+        {walkable:WALKABLE, allowDoorApproach:true}
+      );
+      G.playerPos.x=moved.x; G.playerPos.z=moved.z;
     }
     G.playerMesh.rotation.y=Math.atan2(dx,dz);
     G.moveAccum+=dt;
@@ -449,12 +456,15 @@ export function tryInteract(){
   });
   if(chatVi){ talkTo(chatVi); return; }
 
-  // 건물 입장 → 실내 진입
-  if(ft.t===T.SHOP)    { enterBuilding(T.SHOP, ft.x, ft.y); return; }
-  if(ft.t===T.MUSEUM)  { enterBuilding(T.MUSEUM, ft.x, ft.y); return; }
-  if(ft.t===T.NOOK_HQ) { enterBuilding(T.NOOK_HQ, ft.x, ft.y); return; }
-  if(ft.t===T.PLAYER_HOUSE){ enterBuilding(T.PLAYER_HOUSE, ft.x, ft.y); return; }
-  if(ft.t===T.VILLAGER_HOUSE){ enterBuilding(T.VILLAGER_HOUSE, ft.x, ft.y); return; }
+  // 건물 입장 → 외벽과 출입문을 구분해서 문 앞에서만 진입
+  if([T.SHOP,T.MUSEUM,T.NOOK_HQ,T.PLAYER_HOUSE,T.VILLAGER_HOUSE].includes(ft.t)){
+    if(!isBuildingDoorSide(ft.x, ft.y, G.playerPos.x, G.playerPos.z)){
+      notify('문 앞에서 상호작용해야 들어갈 수 있어요.');
+      return;
+    }
+    enterBuilding(ft.t, ft.x, ft.y);
+    return;
+  }
 
   // 낚시 개시
   if(G.currentTool==='rod') { G.toolSwingTimer = 12; tryFish(); return; }

@@ -16,6 +16,7 @@ export function freshState() {
     world_flowers: {},  // "x,y"→{type, watered:false}
     world_dig_spots: {},// "x,y"→{fossil:id, found:false}
     talked_to: {},
+    npc_memory: {},
     shop_level: 0,      // 0=숲속상회 텐트 1=가게
     nook_debt: 98000,   // 정착 비용
     day: new Date().toDateString(),
@@ -30,7 +31,25 @@ export function freshState() {
 export function loadState() {
   let s;
   try { s = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch(e){}
-  G.gs = (s && s.bells !== undefined) ? s : freshState();
+  if(s && s.bells !== undefined){
+    const base = freshState();
+    G.gs = {...base, ...s};
+    G.gs.inventory = {...base.inventory, ...(s.inventory||{})};
+    G.gs.museum = {
+      fish:{...(s.museum?.fish||{})},
+      bug:{...(s.museum?.bug||{})},
+      fossil:{...(s.museum?.fossil||{})},
+    };
+    G.gs.world_trees = s.world_trees || {};
+    G.gs.world_flowers = s.world_flowers || {};
+    G.gs.world_dig_spots = s.world_dig_spots || {};
+    G.gs.talked_to = s.talked_to || {};
+    G.gs.npc_memory = s.npc_memory || {};
+    G.gs.achievements = s.achievements || {};
+    G.gs.milestones = s.milestones || {};
+  } else {
+    G.gs = freshState();
+  }
   G.playerStung = !!G.gs.playerStung;
   return G.gs;
 }

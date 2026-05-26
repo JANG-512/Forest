@@ -10,7 +10,8 @@ import { buildNPC, updateNPCs } from './npc.js';
 import { initControls, initMobileControls, updatePlayer, updateCamera,
          updateFishing, tryInteract, rotateCam, toggleRun, updatePlayerToolMesh, buildFacingMarker } from './player.js';
 import { initMultiplayer, updateMultiplayer, sendPosition,
-         joinFriendIsland, copyIslandCode, disconnectMP } from './multiplayer.js';
+         joinFriendIsland, copyIslandCode, disconnectMP,
+         sendChatMessage, toggleMultiplayerChat, openMultiplayerRoom } from './multiplayer.js';
 import { updateTimeSystem, updateUI, notify, updateParticles, spawnBees } from './ui.js';
 import { updateInterior } from './interior.js';
 import { VILLAGERS, T, CS } from './config.js';
@@ -32,7 +33,7 @@ Object.assign(window, {
   // character.js
   buildPlayer,
   // multiplayer.js
-  joinFriendIsland, copyIslandCode, disconnectMP,
+  joinFriendIsland, copyIslandCode, disconnectMP, sendChatMessage, toggleMultiplayerChat, openMultiplayerRoom,
 });
 // dialogueOpen는 inline 핸들러(if(!dialogueOpen)...)에서 참조됨 → getter로 노출
 Object.defineProperty(window, 'dialogueOpen', { get(){ return G.dialogueOpen; } });
@@ -102,8 +103,8 @@ function boot(){
     }
   });
 
-  // 플레이어 시작 위치 (강 동쪽 잔디)
-  G.playerPos.x=27*CS; G.playerPos.z=27*CS;
+  // 플레이어 시작 위치: 집/길/강이 한 화면에 들어오도록 남쪽 마을 중심부에 배치
+  G.playerPos.x=27*CS; G.playerPos.z=31*CS;
   G.camTargetX=G.playerPos.x; G.camTargetZ=G.playerPos.z;
 
   updateTimeSystem();

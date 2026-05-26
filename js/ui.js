@@ -28,6 +28,37 @@ let currentNpcId = null;
 let currentNpcVi = null;
 let typewriterTimer = null;
 
+const NPC_INTENTS = {
+  mood:{label:'오늘 어때?', playerLine:'오늘 기분은 어때?', intent:'mood'},
+  news:{label:'섬 소식', playerLine:'요즘 섬에서 무슨 일이 있었어?', intent:'island_news'},
+  help:{label:'도와줄 일?', playerLine:'내가 도와줄 일이 있을까?', intent:'help'},
+  compliment:{label:'칭찬하기', playerLine:'오늘 너 정말 멋져 보여.', intent:'compliment'},
+};
+
+function clearDialogueLog(){
+  const log=document.getElementById('dlg-log');
+  if(!log) return;
+  log.innerHTML='';
+  log.style.display='none';
+}
+
+function appendDialogueMessage(role, speaker, text){
+  const log=document.getElementById('dlg-log');
+  if(!log) return;
+  log.style.display='flex';
+  const msg=document.createElement('div');
+  msg.className=`dlg-msg ${role}`;
+  const safeSpeaker=document.createElement('span');
+  safeSpeaker.className='speaker';
+  safeSpeaker.textContent=speaker;
+  const body=document.createElement('span');
+  body.textContent=text;
+  msg.appendChild(safeSpeaker);
+  msg.appendChild(body);
+  log.appendChild(msg);
+  log.scrollTop=log.scrollHeight;
+}
+
 export function talkTo(vi){
   G.dialogueOpen=true;
   const gs=G.gs;
@@ -60,23 +91,92 @@ export function talkTo(vi){
   // 디버그 보드 수치 동기화
   syncDebugBoard(vi.id);
 
-  // 기본 주민의 첫인사 대사를 뿌림
-  const defaultGreeting = vi.dialogues[0] || "안녕! 오늘 무슨 재미있는 일 있어?";
+  const first = npcPlayerInteract(vi.id, 'greet');
+  const defaultGreeting = first?.reply || vi.dialogues[0] || "안녕! 오늘 무슨 재미있는 일 있어?";
+  clearDialogueLog();
+  appendDialogueMessage('npc', vi.name, `${vi.emoji} ${defaultGreeting}`);
   
-  // 첫인사는 로컬 시뮬레이션 없이 그냥 띄움
-  showDialogue(vi.name, vi.emoji + ' ' + defaultGreeting, [], vi.id);
-
-  // 채팅 인풋 필드 클리어 및 포커스
-  const chatInput = document.getElementById('dlg-chat-input');
-  if(chatInput) {
-    chatInput.value = '';
-    chatInput.disabled = false;
-    setTimeout(() => chatInput.focus(), 100);
-  }
-  const sendBtn = document.getElementById('dlg-chat-send-btn');
-  if(sendBtn) sendBtn.disabled = false;
+  applyNpcResponse(first, false);
+  showDialogue(vi.name, vi.emoji + ' ' + defaultGreeting, buildNpcChoices(), vi.id);
 
   if(Object.keys(gs.talked_to).length>=VILLAGERS.length) checkMilestone('talk_all');
+}
+
+function buildNpcChoices(){
+  return [
+    ...Object.values(NPC_INTENTS).map(meta=>({text:meta.label, action:()=>continueNpcConversation(meta)})),
+    {text:'잘 있어!', action:()=>continueNpcConversation({label:'잘 있어!', playerLine:'나중에 또 보자.', intent:'bye', closes:true})},
+  ];
+}
+
+function getNpcEmoji(npcId, emotion){
+  return NPC_PROFILES[npcId]?.emojis?.[emotion] || currentNpcVi?.emoji || '';
+}
+
+function applyNpcResponse(res, updateLog=true){
+  if(!res || !currentNpcId || !currentNpcVi) return;
+  const st = G.npcState[currentNpcId];
+  if(st) {
+    st.emotionState = res.emotion || st.emotionState || 'neutral';
+    if(res.npc_state) {
+      st.emotionValues = {
+        happiness: res.npc_state.happiness ?? 50,
+        sadness: res.npc_state.sadness ?? 10,
+        anger: res.npc_state.anger ?? 0,
+        stress: res.npc_state.stress ?? 15,
+        loneliness: res.npc_state.loneliness ?? 20,
+        excitement: res.npc_state.excitement ?? 20
+      };
+    }
+    if(!st.relationship) st.relationship = { friendship: st.friendship || 0, trust: 0, affection: 0, conflict: 0 };
+    if(res.relationship_change) {
+      st.relationship.friendship += res.relationship_change.friendship ?? 0;
+      st.relationship.trust += res.relationship_change.trust ?? 0;
+      st.relationship.affection += res.relationship_change.affection ?? 0;
+      st.relationship.conflict += res.relationship_change.conflict ?? 0;
+      G.gs.talked_to[currentNpcId] = st.relationship.friendship;
+    }
+    if(res.memory_created && res.memory_text){
+      if(!G.gs.npc_memory) G.gs.npc_memory = {};
+      const mem = G.gs.npc_memory[currentNpcId] || (G.gs.npc_memory[currentNpcId]={talkCount:0,memories:[]});
+      mem.memories = mem.memories || [];
+      mem.memories.push({topic:res.intent||'이야기', text:res.memory_text, at:Date.now()});
+      mem.memories = mem.memories.slice(-12);
+      mem.lastTopic = res.intent || mem.lastTopic;
+    }
+    st.aiState = 'REACT';
+    st.stateTimer = 120;
+  }
+  const emoji = getNpcEmoji(currentNpcId, res.emotion || 'neutral');
+  document.getElementById('dlg-name').textContent = `${currentNpcVi.name} ${emoji}`;
+  syncDebugBoard(currentNpcId, res.relationship_change);
+  if(updateLog && res.reply) appendDialogueMessage('npc', currentNpcVi.name, emoji + ' ' + res.reply);
+  saveState();
+}
+
+async function continueNpcConversation(meta){
+  if(!currentNpcId || !currentNpcVi) return;
+  appendDialogueMessage('player', '나', meta.playerLine);
+  const textEl=document.getElementById('dlg-text');
+  const thinking=`${currentNpcVi.emoji} 잠깐 생각 중...`;
+  if(textEl) textEl.textContent=thinking;
+
+  const local = npcPlayerInteract(currentNpcId, meta.intent);
+  let res = local;
+  try {
+    res = await ApiClient.talkToNpc('player_1', currentNpcId, meta.playerLine, local?.context || {intent:meta.intent});
+  } catch(e) {
+    console.error('NPC 대화 처리 오류:', e);
+  }
+  applyNpcResponse(res, true);
+  const emoji = getNpcEmoji(currentNpcId, res?.emotion || 'neutral');
+  const replyText = emoji + ' ' + (res?.reply || local?.reply || '...');
+  if(meta.closes){
+    runTypewriterEffect(textEl, replyText);
+    setTimeout(closeDialogue, 450);
+  } else {
+    showDialogue(currentNpcVi.name, replyText, buildNpcChoices(), currentNpcId);
+  }
 }
 
 function runTypewriterEffect(element, text, callback) {
@@ -126,10 +226,8 @@ export function showDialogue(name, text, choices, npcId){
     ch.appendChild(exitBtn);
   }
 
-  const chatContainer = document.getElementById('dlg-chat-container');
-  if(chatContainer) {
-    chatContainer.style.display = 'flex';
-  }
+  const chatLog = document.getElementById('dlg-log');
+  if(chatLog && !npcId) chatLog.style.display = 'none';
 
   playSound('talk');
 }
@@ -137,83 +235,13 @@ export function showDialogue(name, text, choices, npcId){
 export function closeDialogue(){
   G.dialogueOpen=false;
   document.getElementById('dialogue').style.display='none';
+  currentNpcId = null;
+  currentNpcVi = null;
   const db = document.getElementById('debug-dashboard');
   if(db) db.style.display='none';
   if(typewriterTimer) {
     clearInterval(typewriterTimer);
     typewriterTimer = null;
-  }
-}
-
-async function handleSend() {
-  const chatInput = document.getElementById('dlg-chat-input');
-  const sendBtn = document.getElementById('dlg-chat-send-btn');
-  if (!chatInput || !currentNpcId) return;
-
-  const msg = chatInput.value.trim();
-  if (!msg) return;
-
-  // 전송 중 UI 비활성화
-  chatInput.disabled = true;
-  if(sendBtn) sendBtn.disabled = true;
-
-  const textEl = document.getElementById('dlg-text');
-  if(textEl) textEl.textContent = `${currentNpcVi.emoji} 생각 중...`;
-
-  try {
-    const playerId = "player_1";
-    const res = await ApiClient.talkToNpc(playerId, currentNpcId, msg);
-
-    const st = G.npcState[currentNpcId];
-    if(st && res) {
-      // 1. 감정 상태 및 수치 갱신
-      st.emotionState = res.emotion || 'neutral';
-      if(res.npc_state) {
-        st.emotionValues = {
-          happiness: res.npc_state.happiness ?? 50,
-          sadness: res.npc_state.sadness ?? 10,
-          anger: res.npc_state.anger ?? 0,
-          stress: res.npc_state.stress ?? 15,
-          loneliness: res.npc_state.loneliness ?? 20,
-          excitement: res.npc_state.excitement ?? 20
-        };
-      }
-      
-      // 2. 관계 수치 갱신
-      if(res.relationship_change) {
-        st.relationship.friendship += res.relationship_change.friendship ?? 0;
-        st.relationship.trust += res.relationship_change.trust ?? 0;
-        st.relationship.affection += res.relationship_change.affection ?? 0;
-        st.relationship.conflict += res.relationship_change.conflict ?? 0;
-        
-        G.gs.talked_to[currentNpcId] = st.relationship.friendship;
-      }
-
-      // 3. NPC 머리 위 에모지/이름표 변경
-      const emojiName = NPC_PROFILES[currentNpcId]?.emojis[st.emotionState] || currentNpcVi.emoji;
-      document.getElementById('dlg-name').textContent = `${currentNpcVi.name} ${emojiName}`;
-      
-      syncDebugBoard(currentNpcId, res.relationship_change);
-      
-      st.aiState = 'REACT';
-      st.stateTimer = 120; // 2초 리액션
-    }
-
-    if (res && res.reply) {
-      const emoji = NPC_PROFILES[currentNpcId]?.emojis[st.emotionState] || currentNpcVi.emoji;
-      runTypewriterEffect(textEl, emoji + ' ' + res.reply, () => {
-        chatInput.disabled = false;
-        if(sendBtn) sendBtn.disabled = false;
-        chatInput.value = '';
-        chatInput.focus();
-      });
-    }
-
-  } catch(e) {
-    console.error("대화 에러:", e);
-    if(textEl) textEl.textContent = "⚠️ 에러가 발생했습니다.";
-    chatInput.disabled = false;
-    if(sendBtn) sendBtn.disabled = false;
   }
 }
 
@@ -302,20 +330,6 @@ function initAiUiBindings() {
     });
   }
 
-  const chatInput = document.getElementById('dlg-chat-input');
-  const sendBtn = document.getElementById('dlg-chat-send-btn');
-  
-  if (sendBtn) {
-    sendBtn.addEventListener('click', handleSend);
-  }
-  if (chatInput) {
-    chatInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !chatInput.disabled) {
-        e.preventDefault();
-        handleSend();
-      }
-    });
-  }
 }
 
 if (document.readyState === 'loading') {
@@ -654,8 +668,8 @@ export function updateTimeSystem(){
     ambI=0.25+p*0.2; sunI=0.3+p*0.5; sunC=0xffbb88; ambC=0xffccaa;
     fogC=0xffbbaa; skyC=0xff8866;
   } else if(h>=8&&h<17){ // 낮
-    ambI=0.55; sunI=1.0; sunC=0xfff4d0; ambC=0xfff4e8;
-    fogC=0x7ec8e3; skyC=0x7ec8e3;
+    ambI=0.28; sunI=1.35; sunC=0xfff1cf; ambC=0xffead6;
+    fogC=0xa7ddf2; skyC=0xa7ddf2;
   } else if(h>=17&&h<20){// 저녁
     const p=(h-17+m/60)/3;
     ambI=0.55-p*0.25; sunI=1.0-p*0.6; sunC=0xff8844; ambC=0xffaa88;
@@ -668,7 +682,12 @@ export function updateTimeSystem(){
   G.sunLight.intensity=sunI;
   G.sunLight.color.setHex(sunC);
   G.ambLight.color.setHex(ambC);
-  G.scene.fog=new THREE.Fog(fogC,70,160);
+  if(G.hemiLight){
+    G.hemiLight.intensity=h>=8&&h<17?0.86:0.58;
+    G.hemiLight.color.setHex(h>=8&&h<17?0xc8f1ff:0x9fb2ff);
+    G.hemiLight.groundColor.setHex(h>=8&&h<17?0xcaa36b:0x5f4b78);
+  }
+  G.scene.fog=new THREE.Fog(fogC,42,96);
   G.renderer.setClearColor(skyC);
   G.scene.background = new THREE.Color(skyC);
   G.moonLight.intensity=h>=20||h<6?0.15:0;

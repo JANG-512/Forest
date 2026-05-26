@@ -3,13 +3,15 @@
 // ═══════════════════════════════════════════════════════════════
 import { G } from './game.js';
 import { T, CS, VILLAGERS, NPC_SCENARIOS } from './config.js';
-import { getTile, tileH } from './world.js';
+import { tileH } from './world.js';
 import { animateLimbs, buildCharacter } from './character.js';
 import { mat, mesh } from './renderer.js';
 import { playSound } from './audio.js';
+import { saveState } from './state.js';
+import { moveWithWorldCollisions, nudgeOutOfBuilding } from './collision.js';
 
-// 주민 NPC가 걸을 수 있는 타일 — FIX: VILLAGER_HOUSE 및 T.CLIFF 추가 (집/절벽 복귀 가능)
-const NPC_WALK = new Set([T.GRASS,T.PATH,T.FLOWER,T.BRIDGE,T.BEACH,T.CLIFF,T.VILLAGER_HOUSE]);
+// 주민 NPC가 걸을 수 있는 타일. 건물 타일은 외벽 충돌과 분리해서 금지한다.
+const NPC_WALK = new Set([T.GRASS,T.PATH,T.FLOWER,T.BRIDGE,T.BEACH,T.CLIFF]);
 
 export function buildNPC(vi) {
   const bc=vi.color;
@@ -83,8 +85,11 @@ export function buildNPC(vi) {
     moveTimer:100+Math.random()*200,
     aiState:'WALK', stateTimer:0,
     personality:vi.personality||{energy:Math.random(),social:Math.random(),curious:Math.random()},
-    memory:{playerVisits:0,lastPlayerItem:null,heardFrom:{},learnedPhrases:[],scenario:null},
+    memory:{playerVisits:0,lastPlayerItem:null,heardFrom:{},learnedPhrases:[],scenario:null,lastTopic:null},
     friendship:G.gs?(G.gs.talked_to[vi.id]||0):0,
+    relationship:{friendship:G.gs?(G.gs.talked_to[vi.id]||0):0,trust:0,affection:0,conflict:0},
+    emotionValues:{happiness:55,sadness:8,anger:0,stress:12,loneliness:25,excitement:20},
+    needs:{social:30+Math.random()*45,curiosity:30+Math.random()*50,rest:35+Math.random()*35},
     chatCooldown:0, targetVillager:null, targetPos:null,
     stuckCount:0,
     limbs,
@@ -180,6 +185,21 @@ export function updateNPCs(dt) {
     m.visible=true;
 
     if(st.chatCooldown>0) st.chatCooldown-=dt;
+    if(st.needs){
+      st.needs.social=Math.min(100,st.needs.social+0.006*dt);
+      st.needs.curiosity=Math.min(100,st.needs.curiosity+0.004*dt);
+      st.needs.rest=Math.min(100,st.needs.rest+0.003*dt);
+    }
+
+    const playerDx=G.playerPos.x-st.wx, playerDz=G.playerPos.z-st.wz;
+    const playerDist=Math.hypot(playerDx,playerDz);
+    if(playerDist<CS*2.4 && !G.dialogueOpen && st.aiState!=='CHAT_IDLE'){
+      st.dir=Math.atan2(playerDx,playerDz);
+      if((st.needs?.social||0)>68 && st.chatCooldown<=0){
+        st.aiState='LOOK_AROUND';
+        st.stateTimer=Math.max(st.stateTimer,70);
+      }
+    }
 
     // ─── 상태머신 ───
     st.stateTimer-=dt;
@@ -189,7 +209,9 @@ export function updateNPCs(dt) {
         // 가만히 서서 주변 보기
         if(st.stateTimer<=0){
           const roll=Math.random();
-          if(roll<st.personality.energy*0.6) st.aiState='WALK';
+          if((st.needs?.rest||0)>78) st.aiState='SIT';
+          else if((st.needs?.curiosity||0)>72) st.aiState='LOOK_AROUND';
+          else if(roll<st.personality.energy*0.6) st.aiState='WALK';
           else if(roll<0.3&&st.personality.social>0.5) st.aiState='LOOK_AROUND';
           else st.aiState='WALK';
           st.stateTimer=60+Math.random()*180;
@@ -208,13 +230,16 @@ export function updateNPCs(dt) {
         const spd=0.008+st.personality.energy*0.01;
         const nx=st.wx+Math.sin(st.dir)*spd*dt;
         const nz=st.wz+Math.cos(st.dir)*spd*dt;
-        const tx=Math.round(nx/CS), tz=Math.round(nz/CS);
         const hdx=nx-st.home[0], hdz=nz-st.home[1];
         const homeDist=Math.sqrt(hdx*hdx+hdz*hdz);
+        const moved = moveWithWorldCollisions(st.wx, st.wz, nx, nz, 0.34, {
+          walkable:NPC_WALK,
+          allowDoorApproach:false,
+        });
         
         // 집 반경 5.5칸 한계로 마진 적용
-        if(NPC_WALK.has(getTile(tx,tz)) && homeDist < CS*5.5){
-          st.wx=nx; st.wz=nz;
+        if(moved.moved && homeDist < CS*5.5){
+          st.wx=moved.x; st.wz=moved.z;
           st.stuckCount = 0; // 성공적으로 이동 시 stuck 카운트 리셋
         } else {
           // 충돌 또는 경계 이탈 시 물러서기 (충돌 타일에서 완전히 벗어나도록 0.55 고정 유닛 반발)
@@ -252,6 +277,7 @@ export function updateNPCs(dt) {
 
       case 'SIT':
         // 앉아 쉬기 (scale Y 줄여서 표현)
+        if(st.needs) st.needs.rest=Math.max(0,st.needs.rest-0.018*dt);
         m.scale.y=0.85;
         if(st.stateTimer<=0){
           m.scale.y=1;
@@ -283,6 +309,13 @@ export function updateNPCs(dt) {
     // 위치 및 감정 애니메이션 적용
     const ftx=Math.round(st.wx/CS), ftz=Math.round(st.wz/CS);
     const baseH = tileH(ftx,ftz);
+    const nudge = nudgeOutOfBuilding(st.wx, st.wz, 0.34, {allowDoorApproach:false});
+    if(nudge.nudged){
+      st.wx = nudge.x;
+      st.wz = nudge.z;
+      st.dir += Math.PI * 0.75;
+      st.stuckCount = 0;
+    }
 
     let emoOffsetY = 0;
     let emoRotY = 0;
@@ -369,14 +402,110 @@ export function updateNPCs(dt) {
   });
 }
 
-// 플레이어가 주민에게 말 걸었을 때 AI 반응
-export function npcPlayerInteract(viId) {
+const INTENT_TOPICS = {
+  greet:'인사',
+  mood:'기분',
+  island_news:'섬 소식',
+  help:'도움',
+  compliment:'칭찬',
+  bye:'작별',
+};
+
+function ensureSavedMemory(viId){
+  if(!G.gs.npc_memory) G.gs.npc_memory = {};
+  if(!G.gs.npc_memory[viId]){
+    G.gs.npc_memory[viId] = {
+      talkCount:0,
+      lastTopic:null,
+      favoritePlace:null,
+      memories:[],
+      flags:{},
+    };
+  }
+  return G.gs.npc_memory[viId];
+}
+
+function favoritePlaceFor(vi){
+  if(vi.type==='frog') return '강가';
+  if(vi.type==='bear') return '광장 벤치';
+  if(vi.type==='bunny') return '꽃밭';
+  return '마을 길';
+}
+
+function localNpcContext(vi, st, intent, savedMemory){
+  const hour = new Date().getHours();
+  const topic = INTENT_TOPICS[intent] || '이야기';
+  return {
+    intent,
+    hour,
+    friendshipLevel: st.relationship?.friendship || st.friendship || 0,
+    emotion: st.emotionState || 'comfortable',
+    needs: st.needs,
+    memory:{
+      lastTopic:savedMemory.lastTopic,
+      heardTopic:st.memory.learnedPhrases?.[0],
+      memories:savedMemory.memories.slice(-4),
+    },
+    favoritePlace:savedMemory.favoritePlace || favoritePlaceFor(vi),
+    topic,
+  };
+}
+
+function warmLocalLine(vi, st, intent, mem){
+  const place = mem.favoritePlace || favoritePlaceFor(vi);
+  const learned = st.memory.learnedPhrases?.[0];
+  const close = (st.relationship?.friendship||0) >= 4;
+  if(intent==='greet') return close ? `또 왔구나. 아까부터 ${place} 쪽을 보면서 네 생각을 했어.` : `안녕. 오늘은 ${place} 근처를 산책하고 있었어.`;
+  if(intent==='mood') return st.needs.social>60 ? `누군가랑 얘기하고 싶었는데 딱 네가 왔네. 지금 기분 꽤 좋아.` : `조용히 쉬는 중이었어. 그래도 네 목소리를 들으니까 한결 편해졌어.`;
+  if(intent==='island_news') return learned ? `방금 다른 주민이 "${learned}"라고 하던데, 무슨 뜻인지 궁금해졌어.` : `${place}에 작은 장식이 더 생기면 마을이 훨씬 포근해질 것 같아.`;
+  if(intent==='help') return `혹시 시간이 있으면 ${place} 주변을 더 예쁘게 꾸며줘. 내가 자주 들르는 곳이라 기대돼.`;
+  if(intent==='compliment') return `그런 말은 마음에 오래 남아. 오늘은 조금 더 용기 내서 돌아다녀볼게.`;
+  if(intent==='bye') return `응, 다음에 또 얘기하자. 오늘 이야기 기억해둘게.`;
+  return getNPCDialogue(vi, st).replace(`${vi.name}: `,'');
+}
+
+// 플레이어가 주민에게 말 걸었을 때 AI 반응/기억 생성
+export function npcPlayerInteract(viId, intent='greet') {
   const vi=VILLAGERS.find(v=>v.id===viId);
   const st=G.npcState[viId];
   if(!vi||!st) return null;
+  const mem=ensureSavedMemory(viId);
+  const topic=INTENT_TOPICS[intent] || '이야기';
   st.memory.playerVisits++;
-  st.friendship=Math.min(10,(G.gs.talked_to[viId]||0)+1);
+  st.memory.lastTopic=topic;
+  st.friendship=Math.min(50,(G.gs.talked_to[viId]||0)+1);
+  if(!st.relationship) st.relationship={friendship:st.friendship,trust:0,affection:0,conflict:0};
+  st.relationship.friendship=Math.max(st.relationship.friendship||0, st.friendship);
+  st.needs.social=Math.max(0,(st.needs.social||40)-8);
+  st.needs.curiosity=Math.min(100,(st.needs.curiosity||40)+6);
   st.aiState='REACT'; st.stateTimer=80;
-  // 시나리오 기반 대화
-  return getNPCDialogue(vi, st);
+  st.emotionState=intent==='compliment'?'shy':intent==='help'?'excited':intent==='bye'?'comfortable':'happy';
+  mem.talkCount++;
+  mem.lastTopic=topic;
+  mem.favoritePlace=mem.favoritePlace || favoritePlaceFor(vi);
+  if(intent!=='bye'){
+    mem.memories.push({topic, at:Date.now()});
+    mem.memories=mem.memories.slice(-12);
+  }
+  G.gs.talked_to[viId]=Math.max(G.gs.talked_to[viId]||0, st.relationship.friendship||0);
+  saveState();
+  playSound('talk');
+  return {
+    npc_id:viId,
+    reply:warmLocalLine(vi, st, intent, mem),
+    intent,
+    emotion:st.emotionState,
+    relationship_change:{friendship:intent==='bye'?0:1,trust:intent==='island_news'||intent==='help'?1:0,affection:intent==='compliment'?2:0,conflict:0},
+    memory_created:intent!=='bye',
+    memory_text:topic,
+    npc_state:{
+      happiness:st.emotionState==='happy'?78:62,
+      sadness:8,
+      anger:0,
+      stress:Math.max(5,(st.needs.rest||40)-25),
+      loneliness:Math.max(0,30-(st.relationship.friendship||0)*2),
+      excitement:st.emotionState==='excited'?82:36,
+    },
+    context:localNpcContext(vi, st, intent, mem),
+  };
 }
