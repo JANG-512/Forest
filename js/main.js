@@ -1,31 +1,35 @@
 // ═══════════════════════════════════════════════════════════════
 // main.js — 부팅 & 메인 게임 루프 & window 글로벌 노출
 // ═══════════════════════════════════════════════════════════════
-import './renderer.js';   // side-effect: G.scene/camera/renderer/exteriorRoot 초기화
-import { G } from './game.js';
-import { loadState, saveState } from './state.js';
-import { generateWorld, buildGround, setTile, refreshTile } from './world.js';
-import { buildPlayer } from './character.js';
-import { buildNPC, updateNPCs } from './npc.js';
+import './renderer.js?v=20260529-visual-v21';   // side-effect: G.scene/camera/renderer/exteriorRoot 초기화
+import { G } from './game.js?v=20260529-visual-v21';
+import { loadState, saveState } from './state.js?v=20260529-visual-v21';
+import { generateWorld, buildGround, setTile, refreshTile } from './world.js?v=20260529-visual-v21';
+import { buildPlayer } from './character.js?v=20260529-visual-v21';
+import { buildNPC, updateNPCs } from './npc.js?v=20260529-visual-v21';
 import { initControls, initMobileControls, updatePlayer, updateCamera,
-         updateFishing, tryInteract, rotateCam, toggleRun, updatePlayerToolMesh, buildFacingMarker } from './player.js';
+         updateFishing, tryInteract, rotateCam, toggleRun, updatePlayerToolMesh, buildFacingMarker,
+         plantTreeSeedFromInventory } from './player.js?v=20260529-visual-v21';
 import { initMultiplayer, updateMultiplayer, sendPosition,
          joinFriendIsland, copyIslandCode, disconnectMP,
-         sendChatMessage, toggleMultiplayerChat, openMultiplayerRoom } from './multiplayer.js';
-import { updateTimeSystem, updateUI, notify, updateParticles, spawnBees } from './ui.js';
-import { updateInterior } from './interior.js';
-import { VILLAGERS, T, CS } from './config.js';
-import { playBGM } from './audio.js';
+         sendChatMessage, toggleMultiplayerChat, openMultiplayerRoom,
+         ensureMultiplayerRoomOpen } from './multiplayer.js?v=20260529-visual-v21';
+import { updateTimeSystem, updateUI, updateMinimap, notify, updateParticles, spawnBees } from './ui.js?v=20260529-visual-v21';
+import { updateInterior } from './interior.js?v=20260529-visual-v21';
+import { VILLAGERS, T, CS } from './config.js?v=20260529-visual-v21';
+import { playBGM } from './audio.js?v=20260529-visual-v21';
 import {
   togglePanel, closeAllPanels, selectTool, showItemMenu,
   buyItem, sellItem, shopTab, donateItem, payDebt, closeDialogue,
-} from './ui.js';
-import { initTextures, TEXTURES } from './textures.js';
+} from './ui.js?v=20260529-visual-v21';
+import { initTextures, TEXTURES } from './textures.js?v=20260529-visual-v21';
+
+const APP_BUILD_ID = window.POKO_BUILD_ID || '20260529-visual-v21';
 
 // ─── window 글로벌 노출 (HTML onclick / inline 핸들러용) ─────
 Object.assign(window, {
   // player.js
-  tryInteract, rotateCam, toggleRun, updatePlayerToolMesh,
+  tryInteract, rotateCam, toggleRun, updatePlayerToolMesh, plantTreeSeedFromInventory,
   // ui.js
   togglePanel, closeAllPanels, selectTool, showItemMenu,
   buyItem, sellItem, shopTab, donateItem, payDebt, closeDialogue,
@@ -33,7 +37,7 @@ Object.assign(window, {
   // character.js
   buildPlayer,
   // multiplayer.js
-  joinFriendIsland, copyIslandCode, disconnectMP, sendChatMessage, toggleMultiplayerChat, openMultiplayerRoom,
+  joinFriendIsland, copyIslandCode, disconnectMP, sendChatMessage, toggleMultiplayerChat, openMultiplayerRoom, ensureMultiplayerRoomOpen,
 });
 // dialogueOpen는 inline 핸들러(if(!dialogueOpen)...)에서 참조됨 → getter로 노출
 Object.defineProperty(window, 'dialogueOpen', { get(){ return G.dialogueOpen; } });
@@ -49,6 +53,7 @@ function gameLoop(ts){
   updateNPCs(dt);
   updateFishing(dt);
   updateParticles();
+  updateMinimap();
   updateInterior();
   updateCamera();
   updateMultiplayer(dt);
@@ -94,10 +99,11 @@ function installServiceWorker(){
     window.location.reload();
   });
 
-  navigator.serviceWorker.register('./sw.js',{scope:'./', updateViaCache:'none'})
+  navigator.serviceWorker.register(`./sw.js?v=${encodeURIComponent(APP_BUILD_ID)}`,{scope:'./', updateViaCache:'none'})
     .then(reg=>{
       console.log('[PWA] SW registered, scope:',reg.scope);
       reg.update().catch(()=>{});
+      setInterval(()=>reg.update().catch(()=>{}), 60000);
       if(reg.waiting) reg.waiting.postMessage({type:'SKIP_WAITING'});
       reg.addEventListener('updatefound', ()=>{
         const sw=reg.installing;

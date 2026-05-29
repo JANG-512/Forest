@@ -1,14 +1,14 @@
 // ═══════════════════════════════════════════════════════════════
 // npc.js — 주민 NPC 빌더 & AI
 // ═══════════════════════════════════════════════════════════════
-import { G } from './game.js';
-import { T, CS, VILLAGERS, NPC_SCENARIOS } from './config.js';
-import { tileH } from './world.js';
-import { animateLimbs, buildCharacter } from './character.js';
-import { mat, mesh } from './renderer.js';
-import { playSound } from './audio.js';
-import { saveState } from './state.js';
-import { moveWithWorldCollisions, nudgeOutOfBuilding } from './collision.js';
+import { G } from './game.js?v=20260529-visual-v21';
+import { T, CS, VILLAGERS, NPC_SCENARIOS } from './config.js?v=20260529-visual-v21';
+import { tileH } from './world.js?v=20260529-visual-v21';
+import { animateLimbs, buildCharacter } from './character.js?v=20260529-visual-v21';
+import { mat, mesh } from './renderer.js?v=20260529-visual-v21';
+import { playSound } from './audio.js?v=20260529-visual-v21';
+import { saveState } from './state.js?v=20260529-visual-v21';
+import { moveWithWorldCollisions, nudgeOutOfBuilding } from './collision.js?v=20260529-visual-v21';
 
 // 주민 NPC가 걸을 수 있는 타일. 건물 타일은 외벽 충돌과 분리해서 금지한다.
 const NPC_WALK = new Set([T.GRASS,T.PATH,T.FLOWER,T.BRIDGE,T.BEACH,T.CLIFF]);

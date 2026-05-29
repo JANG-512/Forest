@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════════
 // state.js — 세이브/로드 & 인벤토리/마일 헬퍼
 // ═══════════════════════════════════════════════════════════════
-import { SAVE_KEY, MILE_ACHIEVEMENTS } from './config.js';
-import { G } from './game.js';
+import { SAVE_KEY, MILE_ACHIEVEMENTS } from './config.js?v=20260529-visual-v21';
+import { G } from './game.js?v=20260529-visual-v21';
 
 export function freshState() {
   return {
@@ -12,7 +12,7 @@ export function freshState() {
     museum: {fish:{}, bug:{}, fossil:{}},
     house_level: 0,  // 0=텐트 1=집 2=증축 3=2층
     milestones: {},
-    world_trees: {},    // "x,y"→{fruit:'apple', grown:0, lastShake:0}
+    world_trees: {},    // "x,y"→{fruit:'apple', grown:0, lastShake:0, chopCount:0}
     world_flowers: {},  // "x,y"→{type, watered:false}
     world_dig_spots: {},// "x,y"→{fossil:id, found:false}
     talked_to: {},

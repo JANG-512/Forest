@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 // api.js — 백엔드 API 클라이언트 & 로컬 에뮬레이터
 // ═══════════════════════════════════════════════════════════════
-import { VILLAGERS } from './config.js';
+import { VILLAGERS } from './config.js?v=20260529-visual-v21';
 
 export const NPC_PROFILES = {
   lily: {

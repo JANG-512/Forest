@@ -1,12 +1,13 @@
 // ═══════════════════════════════════════════════════════════════
 // game.js — 공유 가변 상태 컨테이너
 // ═══════════════════════════════════════════════════════════════
-import { CS } from './config.js';
+import { CS } from './config.js?v=20260529-visual-v21';
 
 export const G = {
   // Three.js (set by renderer.js)
   scene: null, camera: null, renderer: null,
   ambLight: null, hemiLight: null, sunLight: null, moonLight: null,
+  fillLight: null, rimLight: null,
 
   // Root groups for exterior/interior toggling
   exteriorRoot: null,  // all exterior tile groups go here

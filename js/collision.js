@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════════
 // collision.js — 월드 이동/건물 외벽 충돌 판정
 // ═══════════════════════════════════════════════════════════════
-import { T, CS, WALKABLE } from './config.js';
-import { getTile } from './world.js';
+import { T, CS, WALKABLE } from './config.js?v=20260529-visual-v21';
+import { getTile } from './world.js?v=20260529-visual-v21';
 
 export const BUILDING_TYPES = new Set([
   T.SHOP, T.MUSEUM, T.NOOK_HQ, T.PLAYER_HOUSE, T.VILLAGER_HOUSE,

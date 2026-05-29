@@ -1,10 +1,10 @@
 // ═══════════════════════════════════════════════════════════════
 // world.js — 지형 데이터 & 3D 타일 빌더 (그래픽 대폭 업그레이드)
 // ═══════════════════════════════════════════════════════════════
-import { G } from './game.js';
-import { T, WW, WH, CS, TILE_COLORS, TILE_HEIGHT, VILLAGERS, FRUIT_POOL, FOSSIL_POOL, ITEMS } from './config.js';
-import { mat, mesh, disposeMesh } from './renderer.js';
-import { initTextures, TEXTURES } from './textures.js';
+import { G } from './game.js?v=20260529-visual-v21';
+import { T, WW, WH, CS, TILE_COLORS, TILE_HEIGHT, VILLAGERS, FRUIT_POOL, FOSSIL_POOL, ITEMS } from './config.js?v=20260529-visual-v21';
+import { mat, mesh, disposeMesh } from './renderer.js?v=20260529-visual-v21';
+import { initTextures, TEXTURES } from './textures.js?v=20260529-visual-v21';
 
 const ISLAND_CX = WW/2, ISLAND_CY = WH/2;
 
@@ -127,6 +127,136 @@ function createTinyLantern(color=0xffefbf) {
   return g;
 }
 
+function createWildflowerPatch(seed=0) {
+  const group = new THREE.Group();
+  const stemMat = new THREE.MeshStandardMaterial({ color: 0x4f9b38, roughness: 0.78 });
+  const petalColors = [0xff8fbc, 0xffd866, 0x8ed8ff, 0xffffff, 0xc9a7ff];
+  const count = 3 + Math.floor(rng(seed, 1) * 3);
+  for(let i=0;i<count;i++){
+    const f = new THREE.Group();
+    const ox = (rng(seed, 10+i)-0.5)*0.42;
+    const oz = (rng(seed, 20+i)-0.5)*0.42;
+    const h = 0.16 + rng(seed, 30+i)*0.12;
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.014, h, 4), stemMat);
+    stem.position.y = h/2;
+    stem.rotation.z = (rng(seed, 40+i)-0.5)*0.28;
+    f.add(stem);
+    const petalMat = new THREE.MeshStandardMaterial({ color: petalColors[Math.floor(rng(seed, 50+i)*petalColors.length)], roughness: 0.58 });
+    for(let p=0;p<5;p++){
+      const petal = new THREE.Mesh(new THREE.SphereGeometry(0.03, 5, 4), petalMat);
+      const a = p*Math.PI*2/5;
+      petal.position.set(Math.cos(a)*0.038, h + Math.sin(a)*0.026, 0.012);
+      petal.scale.set(1.45, 0.76, 0.45);
+      petal.rotation.z = a;
+      f.add(petal);
+    }
+    const center = new THREE.Mesh(new THREE.SphereGeometry(0.018, 5, 4), new THREE.MeshStandardMaterial({ color: 0xffcf42, roughness: 0.5 }));
+    center.position.set(0, h, 0.024);
+    f.add(center);
+    f.position.set(ox, 0, oz);
+    f.rotation.y = rng(seed, 70+i)*Math.PI*2;
+    group.add(f);
+  }
+  return group;
+}
+
+function createMushroomCluster(seed=0) {
+  const group = new THREE.Group();
+  const stemMat = new THREE.MeshStandardMaterial({ color: 0xffe7c5, roughness: 0.8 });
+  const capColors = [0xff6d5d, 0xf6a84d, 0xe85f7d];
+  for(let i=0;i<3;i++){
+    const r = 0.045 + rng(seed, 8+i)*0.035;
+    const m = new THREE.Group();
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(r*0.34, r*0.44, r*1.55, 6), stemMat);
+    stem.position.y = r*0.78;
+    m.add(stem);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(r, 7, 5), new THREE.MeshStandardMaterial({ color: capColors[i%capColors.length], roughness: 0.6 }));
+    cap.scale.set(1.25, 0.58, 1.25);
+    cap.position.y = r*1.55;
+    cap.castShadow = true;
+    m.add(cap);
+    const spot = new THREE.Mesh(new THREE.SphereGeometry(r*0.22, 4, 3), new THREE.MeshBasicMaterial({ color: 0xfff3dc }));
+    spot.scale.set(1.1, 0.35, 1.1);
+    spot.position.set(r*0.22, r*1.84, r*0.08);
+    m.add(spot);
+    m.position.set((rng(seed, 20+i)-0.5)*0.28, 0, (rng(seed, 30+i)-0.5)*0.28);
+    group.add(m);
+  }
+  return group;
+}
+
+function createButterfly(seed=0) {
+  const group = new THREE.Group();
+  const wingColors = [0xffcf5a, 0x8ed8ff, 0xff9ac5, 0xb5ee85];
+  const wingMat = new THREE.MeshBasicMaterial({ color: wingColors[Math.floor(rng(seed, 1)*wingColors.length)], transparent: true, opacity: 0.92, side: THREE.DoubleSide });
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x4b3425, roughness: 0.7 });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.012, 0.12, 5), bodyMat);
+  body.rotation.x = Math.PI/2;
+  group.add(body);
+  [-1,1].forEach(side=>{
+    const wing = new THREE.Mesh(new THREE.SphereGeometry(0.055, 6, 5), wingMat);
+    wing.scale.set(1.25, 0.12, 0.82);
+    wing.position.set(side*0.052, 0.015, 0);
+    wing.rotation.z = side*0.32;
+    group.add(wing);
+  });
+  group.position.y = 0.48 + rng(seed, 3)*0.18;
+  group.rotation.y = rng(seed, 4)*Math.PI*2;
+  return group;
+}
+
+function createPathPebbleCluster(seed=0) {
+  const group = new THREE.Group();
+  const colors = [0xcdb98a, 0xbda77a, 0xe2cf9d, 0xa9a48f];
+  for(let i=0;i<4;i++){
+    const pebble = new THREE.Mesh(
+      new THREE.SphereGeometry(0.025 + rng(seed, i)*0.025, 5, 4),
+      new THREE.MeshStandardMaterial({ color: colors[i%colors.length], roughness: 0.86 })
+    );
+    pebble.scale.set(1.45, 0.34, 1.0);
+    pebble.position.set((rng(seed, 10+i)-0.5)*0.22, 0.018, (rng(seed, 20+i)-0.5)*0.22);
+    pebble.rotation.y = rng(seed, 30+i)*Math.PI*2;
+    pebble.receiveShadow = true;
+    group.add(pebble);
+  }
+  return group;
+}
+
+function createWaterGleam(seed=0) {
+  const group = new THREE.Group();
+  const mat = new THREE.MeshBasicMaterial({ color: 0xf4fffb, transparent: true, opacity: 0.34, depthWrite: false, side: THREE.DoubleSide });
+  const count = 2 + Math.floor(rng(seed, 1)*2);
+  for(let i=0;i<count;i++){
+    const glint = new THREE.Mesh(new THREE.PlaneGeometry(0.24 + rng(seed, 8+i)*0.26, 0.028), mat.clone());
+    glint.rotation.x = -Math.PI/2;
+    glint.rotation.z = (rng(seed, 18+i)-0.5)*0.7;
+    glint.position.set((rng(seed, 28+i)-0.5)*0.62, 0, (rng(seed, 38+i)-0.5)*0.62);
+    glint.material.opacity = 0.2 + rng(seed, 48+i)*0.22;
+    group.add(glint);
+  }
+  return group;
+}
+
+function addWindowCrossbars(group, x, y, z, width=0.32, height=0.32, color=0xffffff) {
+  const matBar = new THREE.MeshStandardMaterial({ color, roughness: 0.55 });
+  const vertical = new THREE.Mesh(getRoundedBoxGeometry(0.026, height, 0.025, 0.004, 1), matBar);
+  vertical.position.set(x, y, z);
+  group.add(vertical);
+  const horizontal = new THREE.Mesh(getRoundedBoxGeometry(width, 0.026, 0.025, 0.004, 1), matBar);
+  horizontal.position.set(x, y, z + 0.002);
+  group.add(horizontal);
+}
+
+function addDoorPlanters(group, y, z, spacing=0.52) {
+  [-spacing, spacing].forEach((x, idx) => {
+    const pot = createFlowerPot();
+    pot.position.set(x, y, z);
+    pot.scale.setScalar(0.82);
+    pot.rotation.y = idx === 0 ? 0.18 : -0.18;
+    group.add(pot);
+  });
+}
+
 // ─── 세계 생성 ───────────────────────────────────────────────
 export function generateWorld() {
   const gs = G.gs;
@@ -217,7 +347,7 @@ export function generateWorld() {
     if(getTile(tx,ty)===T.GRASS||getTile(tx,ty)===T.CLIFF){
       setTile(tx,ty,T.TREE);
       const fr=FRUIT_POOL[Math.floor(Math.random()*FRUIT_POOL.length)];
-      gs.world_trees[`${tx},${ty}`]={fruit:fr, grown:2, lastShake:0, shakeCount:0};
+      gs.world_trees[`${tx},${ty}`]={fruit:fr, grown:2, lastShake:0, shakeCount:0, chopCount:0, woodHarvested:0};
     }
   });
   // 꽃
@@ -386,7 +516,7 @@ function addTileDecor(g, t, x, y, h) {
         const rp = new THREE.Mesh(new THREE.PlaneGeometry(CS * 1.005, CS * 1.005, 5, 5), TEXTURES.waterMaterial);
         rp.rotation.x = -Math.PI / 2;
         rp.position.y = h + 0.04;
-        rp.receiveShadow = true;
+        rp.receiveShadow = false;
         g.add(rp);
       }
 
@@ -406,6 +536,23 @@ function addTileDecor(g, t, x, y, h) {
       foamDirs.forEach(fd=>{
         const nt=getTile(x+fd.dx,y+fd.dz);
         if(nt!==T.OCEAN&&nt!==T.RIVER&&nt!==T.WATERFALL){
+          if(nt !== T.BRIDGE){
+            const nH = tileH(x+fd.dx,y+fd.dz);
+            const bankHeight = Math.max(0.16, nH - h + 0.04);
+            const bankColor = nt===T.BEACH ? 0xd8bd86 : nt===T.PATH ? 0xbfa978 : 0x7f5d3d;
+            const capColor = nt===T.BEACH ? 0xead39d : nt===T.PATH ? 0xd4c08f : 0x66b74a;
+            const bankMat = new THREE.MeshStandardMaterial({ color: bankColor, roughness: 0.88, metalness: 0.02 });
+            const capMat = new THREE.MeshStandardMaterial({ color: capColor, roughness: 0.78, metalness: 0.02, map: nt===T.PATH ? null : TEXTURES.grass });
+            const bank = new THREE.Mesh(getRoundedBoxGeometry(fd.w, bankHeight, fd.d, 0.018, 2), bankMat);
+            bank.position.set(fd.px, h + 0.01 + bankHeight/2, fd.pz);
+            bank.castShadow = false;
+            bank.receiveShadow = true;
+            g.add(bank);
+            const cap = new THREE.Mesh(getRoundedBoxGeometry(fd.w*0.98, 0.035, fd.d*0.98, 0.014, 2), capMat);
+            cap.position.set(fd.px, h + 0.018 + bankHeight, fd.pz);
+            cap.receiveShadow = true;
+            g.add(cap);
+          }
           const foam=new THREE.Mesh(new THREE.PlaneGeometry(fd.w, fd.d), foamMat.clone());
           foam.rotation.x=-Math.PI/2;
           foam.position.set(fd.px, h+0.055, fd.pz);
@@ -413,6 +560,12 @@ function addTileDecor(g, t, x, y, h) {
           g.add(foam);
         }
       });
+
+      if(rng(s, 407) < (t === T.OCEAN ? 0.16 : 0.24)){
+        const gleam = createWaterGleam(s + 407);
+        gleam.position.set((rng(s,408)-0.5)*0.24, h + 0.075, (rng(s,409)-0.5)*0.24);
+        g.add(gleam);
+      }
       
       // 폭포 물리 메쉬 (수직 낙하)
       if(t === T.WATERFALL && TEXTURES.waterMaterial) {
@@ -427,18 +580,18 @@ function addTileDecor(g, t, x, y, h) {
         const waterUnder = new THREE.Mesh(new THREE.PlaneGeometry(CS * 1.005, CS * 1.005, 5, 5), TEXTURES.waterMaterial);
         waterUnder.rotation.x = -Math.PI / 2;
         waterUnder.position.y = (TILE_HEIGHT[T.RIVER] ?? -0.1) + 0.04;
-        waterUnder.receiveShadow = true;
+        waterUnder.receiveShadow = false;
         g.add(waterUnder);
       }
 
       // 다리 아래 부드러운 타원 그림자 (NormalBlending으로 알파 페이드 지원)
       if (TEXTURES.shadowBlob) {
         const shGeo = new THREE.PlaneGeometry(CS * 1.2, CS * 1.2);
-        const shMat = new THREE.MeshBasicMaterial({ map: TEXTURES.shadowBlob, transparent: true, opacity: 0.42, depthWrite: false, alphaTest: 0.02, color: 0x5a6388 });
+        const shMat = new THREE.MeshBasicMaterial({ map: TEXTURES.shadowBlob, transparent: true, opacity: 0.08, depthWrite: false, alphaTest: 0.02, color: 0x5a6388 });
         const sh = new THREE.Mesh(shGeo, shMat);
         sh.rotation.x = -Math.PI/2;
         sh.position.y = h - 0.08; // 물 밑 바닥에 투사
-        sh.scale.set(1.35, 0.72, 1);
+        sh.scale.set(1.08, 0.48, 1);
         g.add(sh);
       }
 
@@ -448,6 +601,7 @@ function addTileDecor(g, t, x, y, h) {
       
       const woodMat = new THREE.MeshStandardMaterial({ color: 0xbf8a4e, roughness: 0.78, metalness: 0.05 });
       const darkWoodMat = new THREE.MeshStandardMaterial({ color: 0x8b5b2e, roughness: 0.85 });
+      const woodHighlightMat = new THREE.MeshStandardMaterial({ color: 0xe2b878, roughness: 0.7, metalness: 0.03 });
 
       // 다리 상판은 강을 가로지르는 방향으로 긴 목재 판자를 여러 개 놓는다
       const numLogs = 6;
@@ -459,6 +613,11 @@ function addTileDecor(g, t, x, y, h) {
         log.position.set(0, 0.08, logOffset);
         log.castShadow = true; log.receiveShadow = true;
         bridgeGroup.add(log);
+
+        const stripe = new THREE.Mesh(getRoundedBoxGeometry(CS * 0.86, 0.018, logWidth * 0.14, 0.006, 1), woodHighlightMat);
+        stripe.position.set(-0.03, 0.173, logOffset - logWidth * 0.18);
+        stripe.castShadow = false;
+        bridgeGroup.add(stripe);
       }
 
       // 네 개 모서리 난간 기둥 (Posts)
@@ -593,6 +752,28 @@ function addTileDecor(g, t, x, y, h) {
         g.add(leaf);
       }
 
+      if(rng(s, 61)<0.095){
+        const patch = createWildflowerPatch(s + 61);
+        patch.position.set((rng(s,62)-.5)*CS*.62, h+0.012, (rng(s,63)-.5)*CS*.62);
+        patch.rotation.y = rng(s,64)*Math.PI*2;
+        g.add(patch);
+      }
+
+      if(rng(s, 65)<0.034){
+        const mushrooms = createMushroomCluster(s + 65);
+        mushrooms.position.set((rng(s,66)-.5)*CS*.62, h+0.012, (rng(s,67)-.5)*CS*.62);
+        mushrooms.rotation.y = rng(s,68)*Math.PI*2;
+        g.add(mushrooms);
+      }
+
+      if(y>=16 && y<=35 && x>=10 && x<=38 && rng(s, 69)<0.018){
+        const butterfly = createButterfly(s + 69);
+        butterfly.position.x = (rng(s,70)-.5)*CS*.5;
+        butterfly.position.z = (rng(s,71)-.5)*CS*.5;
+        butterfly.position.y += h;
+        g.add(butterfly);
+      }
+
       // 2. 수변(Shoreline) 조약돌 및 갈대 장식 자동 빌드
       const waterDirs = [
         {dx: 0, dz: 1, px: 0, pz: CS/2 - 0.08},
@@ -707,6 +888,15 @@ function addTileDecor(g, t, x, y, h) {
         g.add(blade);
         G.grassBlades.push(blade);
       }
+
+      if(rng(s, 181)<0.32){
+        const pebbles = createPathPebbleCluster(s + 181);
+        const edgeAng = rng(s, 182)*Math.PI*2;
+        const edgeRad = CS*(0.34+rng(s,183)*0.12);
+        pebbles.position.set(Math.cos(edgeAng)*edgeRad, h+0.028, Math.sin(edgeAng)*edgeRad);
+        pebbles.rotation.y = edgeAng;
+        g.add(pebbles);
+      }
       
       // 길 가장자리 울타리 데코레이션 자동 연출
       // 길 옆에 잔디 타일이 있다면 경계에 일정한 울타리를 드문드문 배치
@@ -808,10 +998,22 @@ function addTileDecor(g, t, x, y, h) {
       }
       g.add(trunkGroup);
 
+      const scarCount = Math.min(3, td.chopCount || td.scars || 0);
+      for (let i=0;i<scarCount;i++) {
+        const scar = mesh(new THREE.BoxGeometry(0.24 - i*0.025, 0.035, 0.026), 0x5a3826, false);
+        scar.position.set(offx + (i-1)*0.025, h + 0.26 + i*0.13, offz + 0.18);
+        scar.rotation.set(0.08, 0, (i-1)*0.16);
+        g.add(scar);
+        const fresh = mesh(new THREE.BoxGeometry(0.15 - i*0.018, 0.014, 0.029), 0xd8b06d, false);
+        fresh.position.set(offx + (i-1)*0.025, h + 0.26 + i*0.13, offz + 0.195);
+        fresh.rotation.copy(scar.rotation);
+        g.add(fresh);
+      }
+
       if(td.grown>=2){
         // 6구체 레이어로 뭉게뭉게 퍼지는 풍성한 나뭇잎 (Stylized Foliage)
-        const leafCol = 0x4a9e30;
-        const leafMat = new THREE.MeshStandardMaterial({ color: leafCol, roughness: 0.68, metalness: 0.05 });
+        const leafColors = [0x4a9e30, 0x58b541, 0x6cc957, 0x3f8f2c];
+        const highlightMat = new THREE.MeshStandardMaterial({ color: 0x9be36a, roughness: 0.64, metalness: 0.03 });
         
         const leavesGroup = new THREE.Group();
         leavesGroup.position.set(offx, h + (0.75 + td.grown*0.18), offz);
@@ -825,11 +1027,20 @@ function addTileDecor(g, t, x, y, h) {
           {x: 0, y: 0.38, z: 0, r: 0.4}
         ];
         
-        leafClusters.forEach(lc => {
+        leafClusters.forEach((lc, idx) => {
+          const leafMat = new THREE.MeshStandardMaterial({ color: leafColors[idx % leafColors.length], roughness: 0.68, metalness: 0.04 });
           const lf = new THREE.Mesh(new THREE.SphereGeometry(lc.r, 10, 8), leafMat);
           lf.position.set(lc.x, lc.y, lc.z);
           lf.castShadow = true; lf.receiveShadow = true;
           leavesGroup.add(lf);
+        });
+
+        [[-0.2,0.23,0.36,0.16],[0.18,0.5,0.18,0.13],[0.24,0.1,-0.24,0.12]].forEach(([hx,hy,hz,hr])=>{
+          const shine = new THREE.Mesh(new THREE.SphereGeometry(hr, 7, 5), highlightMat);
+          shine.scale.set(1.4, 0.36, 0.8);
+          shine.position.set(hx, hy, hz);
+          shine.rotation.y = rng(s, 310+Math.floor(hy*100))*Math.PI*2;
+          leavesGroup.add(shine);
         });
         g.add(leavesGroup);
 
@@ -912,6 +1123,15 @@ function addTileDecor(g, t, x, y, h) {
       moss.position.set(0.04, 0.33, -0.04);
       moss.castShadow = true;
       rockGroup.add(moss);
+
+      const shineMat = new THREE.MeshStandardMaterial({ color: 0xc5cbd0, roughness: 0.6, metalness: 0.04 });
+      [[-0.09,0.37,0.14,0.07],[0.16,0.26,0.03,0.05]].forEach(([rx,ry,rz,rr])=>{
+        const shine = new THREE.Mesh(new THREE.SphereGeometry(rr, 5, 4), shineMat);
+        shine.scale.set(1.5, 0.24, 0.82);
+        shine.position.set(rx, ry, rz);
+        shine.rotation.y = rng(s, 930+Math.floor(rx*100))*Math.PI*2;
+        rockGroup.add(shine);
+      });
 
       g.add(rockGroup);
       break;
@@ -1003,6 +1223,13 @@ export function buildShop(g, h) {
   wall.castShadow = true; wall.receiveShadow = true;
   shopGroup.add(wall);
 
+  const clapMat = new THREE.MeshStandardMaterial({ color: 0xfff2cf, roughness: 0.82 });
+  for(let i=0;i<5;i++){
+    const clap = new THREE.Mesh(getRoundedBoxGeometry(w * 0.88, 0.026, 0.032, 0.004, 1), clapMat);
+    clap.position.set(0, 0.48 + i*0.31, d/2 + 0.018);
+    shopGroup.add(clap);
+  }
+
   const roofMat = new THREE.MeshStandardMaterial({ color: 0xd84830, roughness: 0.62 }); // 빨간 지붕
   const roofL = new THREE.Mesh(getRoundedBoxGeometry(w * 0.72, 0.18, d * 1.2, 0.025, 2), roofMat);
   roofL.position.set(-w/4 - 0.03, hi + 0.36, 0);
@@ -1042,7 +1269,20 @@ export function buildShop(g, h) {
     const winG = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.58), glassMat);
     winG.position.set(wx, hi * 0.48, d/2 + 0.045);
     shopGroup.add(winG);
+    addWindowCrossbars(shopGroup, wx, hi * 0.48, d/2 + 0.075, 0.34, 0.52, 0xffffff);
   });
+
+  const awningMats = [
+    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.62 }),
+    new THREE.MeshStandardMaterial({ color: 0x5bb4e8, roughness: 0.62 })
+  ];
+  for(let i=0;i<5;i++){
+    const stripe = new THREE.Mesh(getRoundedBoxGeometry(0.32, 0.07, 0.36, 0.012, 2), awningMats[i%2]);
+    stripe.position.set((i-2)*0.31, hi * 0.82, d/2 + 0.18);
+    stripe.rotation.x = -0.16;
+    stripe.castShadow = true;
+    shopGroup.add(stripe);
+  }
 
   const door = createDoorAssembly({ width: 0.54, height: 1.18, doorColor: 0x8b5b2e, frameColor: 0xfff2d2 });
   door.position.set(0, 0.02, d/2 + 0.06);
@@ -1057,6 +1297,7 @@ export function buildShop(g, h) {
     lamp.position.set(lx, 0, d/2 + 0.08);
     shopGroup.add(lamp);
   });
+  addDoorPlanters(shopGroup, 0, d/2 + 0.34, 0.42);
 
   // 미니 나무 디스플레이 벤치
   const bench = new THREE.Mesh(getRoundedBoxGeometry(0.68, 0.08, 0.28, 0.01, 2), new THREE.MeshStandardMaterial({ color: 0xbfa68c }));
@@ -1165,6 +1406,13 @@ export function buildNookHQ(g, h) {
   wall.castShadow = true; wall.receiveShadow = true;
   hqGroup.add(wall);
 
+  const grooveMat = new THREE.MeshStandardMaterial({ color: 0xbb8052, roughness: 0.9 });
+  for(let i=0;i<5;i++){
+    const groove = new THREE.Mesh(getRoundedBoxGeometry(w * 0.9, 0.024, 0.035, 0.004, 1), grooveMat);
+    groove.position.set(0, 0.46 + i*0.3, d/2 + 0.018);
+    hqGroup.add(groove);
+  }
+
   // 박공 녹색 지붕
   const roof = new THREE.Mesh(new THREE.ConeGeometry(w * 0.72, 0.8, 4), greenRoofMat);
   roof.position.y = hi + 0.45;
@@ -1226,7 +1474,9 @@ export function buildNookHQ(g, h) {
     const glass = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 0.32), new THREE.MeshBasicMaterial({ color: 0xffdf66, transparent: true, opacity: 0.86 }));
     glass.position.set(wx, 1.32, d/2 + 0.085);
     hqGroup.add(glass);
+    addWindowCrossbars(hqGroup, wx, 1.32, d/2 + 0.11, 0.3, 0.3, 0xfff7dd);
   });
+  addDoorPlanters(hqGroup, 0, d/2 + 0.34, 0.46);
   g.add(hqGroup);
 }
 
@@ -1340,6 +1590,19 @@ export function buildPlayerHouse(g, h) {
     roofR.castShadow = true;
     houseGroup.add(roofR);
 
+    const shingleMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55, transparent: true, opacity: 0.32 });
+    for(let i=0;i<3;i++){
+      const yy = hi + 0.28 + i*0.13;
+      const stripL = new THREE.Mesh(getRoundedBoxGeometry(rW * 0.72, 0.022, 0.035, 0.006, 1), shingleMat);
+      stripL.position.set(-w/4 - 0.035, yy, d*0.23 - i*0.04);
+      stripL.rotation.z = 0.55;
+      houseGroup.add(stripL);
+      const stripR = new THREE.Mesh(getRoundedBoxGeometry(rW * 0.72, 0.022, 0.035, 0.006, 1), shingleMat);
+      stripR.position.set(w/4 + 0.035, yy, d*0.23 - i*0.04);
+      stripR.rotation.z = -0.55;
+      houseGroup.add(stripR);
+    }
+
     // 지붕 리지
     const ridge = new THREE.Mesh(getRoundedBoxGeometry(w * 0.06, w * 0.06, rD * 1.02, 0.01, 2), roofTrimMat);
     ridge.position.set(0, hi + 0.69, 0);
@@ -1382,6 +1645,7 @@ export function buildPlayerHouse(g, h) {
     const glass = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.36), new THREE.MeshBasicMaterial({ color: 0xffdf66 }));
     glass.position.set(w/3.2, hi * 0.5, d/2 + 0.055);
     houseGroup.add(glass);
+    addWindowCrossbars(houseGroup, w/3.2, hi * 0.5, d/2 + 0.082, 0.32, 0.32, 0xffffff);
 
     // 우체통 (Mailbox)
     const mboxGroup = new THREE.Group();
@@ -1403,6 +1667,7 @@ export function buildPlayerHouse(g, h) {
     mboxGroup.add(flg);
 
     houseGroup.add(mboxGroup);
+    addDoorPlanters(houseGroup, 0, d/2 + 0.36, 0.48);
 
     // 하프 우든 펜스 (양쪽)
     [-w/2 - 0.1, w/2 + 0.1].forEach(side => {
@@ -1442,6 +1707,14 @@ export function buildVillagerHouse(g, h, vi) {
   roof.castShadow = true;
   houseGroup.add(roof);
 
+  const roofSpotMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.56, transparent: true, opacity: 0.42 });
+  [[-0.22,0.12],[0.18,-0.08],[0.02,0.26]].forEach(([sx,sz], idx)=>{
+    const spot = new THREE.Mesh(new THREE.SphereGeometry(0.08 - idx*0.01, 6, 5), roofSpotMat);
+    spot.scale.set(1.4, 0.22, 1.0);
+    spot.position.set(sx, hi + 0.76 - idx*0.05, sz);
+    houseGroup.add(spot);
+  });
+
   const door = createDoorAssembly({ width: 0.5, height: 1.08, doorColor: 0x8b5b2e, frameColor: 0xfff7dd, openDir: -1 });
   door.position.set(0, 0.02, d/2 + 0.07);
   houseGroup.add(door);
@@ -1459,6 +1732,8 @@ export function buildVillagerHouse(g, h, vi) {
   const glass = new THREE.Mesh(new THREE.PlaneGeometry(0.28, 0.28), new THREE.MeshBasicMaterial({ color: 0xffdf66 }));
   glass.position.set(w/3.4, hi * 0.55, d/2 + 0.05);
   houseGroup.add(glass);
+  addWindowCrossbars(houseGroup, w/3.4, hi * 0.55, d/2 + 0.076, 0.22, 0.22, 0xffffff);
+  addDoorPlanters(houseGroup, 0, d/2 + 0.32, 0.4);
 
   g.add(houseGroup);
 }

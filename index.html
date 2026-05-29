@@ -2,6 +2,29 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<script>
+window.POKO_BUILD_ID = '20260529-visual-v21';
+(function(){
+  try {
+    var key = 'poko-build-id';
+    var buildId = window.POKO_BUILD_ID;
+    var previous = localStorage.getItem(key);
+    if (previous !== buildId) {
+      localStorage.setItem(key, buildId);
+      if ('caches' in window) {
+        caches.keys().then(function(keys){
+          return Promise.all(keys
+            .filter(function(name){ return name.indexOf('forest-island') === 0; })
+            .map(function(name){ return caches.delete(name); }));
+        }).catch(function(){});
+      }
+    }
+  } catch (err) {}
+})();
+</script>
 <script>
 window.onerror = function(message, source, lineno, colno, error) {
   var div = document.createElement('div');
@@ -43,12 +66,12 @@ window.addEventListener('unhandledrejection', function(event) {
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-content">
 <title>Forest Island 🌿</title>
-<link rel="manifest" href="manifest.json?v=2.4">
+<link rel="manifest" href="manifest.json?v=20260529-visual-v21">
 <meta name="theme-color" content="#7ec8e3">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Forest Island">
-<link rel="apple-touch-icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon.svg?v=20260529-visual-v21">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="format-detection" content="telephone=no">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -72,6 +95,7 @@ button,input,textarea,select{font:inherit}
 button{touch-action:manipulation}
 #c3d{position:fixed;inset:0;display:block;width:100vw;height:var(--app-height);filter:saturate(1.08) contrast(1.02) brightness(1.01) sepia(0.025)}
 #ui{position:fixed;left:0;top:0;width:100vw;height:var(--app-height);overflow:hidden;pointer-events:none}
+#ai-setting-pill{display:none!important}
 /* HUD */
 #hud-top{position:absolute;top:calc(10px + var(--safe-top));left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;padding:0 calc(14px + var(--safe-right)) 0 calc(14px + var(--safe-left));gap:8px}
 .hud-pill{background:rgba(255,255,255,0.92);border-radius:20px;padding:5px 14px;font-size:13px;font-weight:700;color:#3b3028;box-shadow:0 2px 8px rgba(0,0,0,.12);pointer-events:all}
@@ -157,6 +181,8 @@ button{touch-action:manipulation}
 #catch-fill{height:100%;background:linear-gradient(90deg,#7ec880,#3a9e5f);border-radius:7px;width:0%;transition:.1s}
 /* Season banner */
 #season-banner{position:absolute;top:calc(56px + var(--safe-top));right:calc(14px + var(--safe-right));background:rgba(255,255,255,.88);border-radius:12px;padding:4px 11px;font-size:11px;font-weight:700;color:#3b3028;display:flex;align-items:center;gap:5px}
+#minimap-wrap{position:absolute;right:calc(14px + var(--safe-right));top:calc(86px + var(--safe-top));width:132px;height:132px;border-radius:18px;padding:7px;background:rgba(255,252,240,.9);box-shadow:0 5px 18px rgba(50,70,60,.16);border:1px solid rgba(255,255,255,.6);pointer-events:none}
+#minimap{display:block;width:118px;height:118px;border-radius:13px;background:#9ed787;box-shadow:inset 0 0 0 2px rgba(255,255,255,.7)}
 /* Miles */
 #miles-pill{background:rgba(255,200,80,.9);border-radius:20px;padding:5px 14px;font-size:13px;font-weight:700;color:#3b3028;display:flex;align-items:center;gap:4px}
 /* Scrollbar */
@@ -196,6 +222,8 @@ button{touch-action:manipulation}
 @media(max-width:640px){
   input,textarea,select{font-size:16px!important}
   #ai-setting-pill,#debug-dashboard{display:none!important}
+  #minimap-wrap{width:104px;height:104px;padding:6px;top:calc(86px + var(--safe-top));right:calc(10px + var(--safe-right))}
+  #minimap{width:92px;height:92px;border-radius:11px}
   #toolbar{bottom:calc(184px + var(--safe-bottom));gap:3px;padding:5px 8px;border-radius:16px}
   .tool-btn{width:clamp(38px,11.4vw,44px);height:44px;font-size:17px}
   .tool-btn span{font-size:7px}
@@ -243,6 +271,8 @@ button{touch-action:manipulation}
   .hud-pill{padding:3px 10px;font-size:11px}
   #season-banner{top:calc(6px + var(--safe-top));right:calc(8px + var(--safe-right));font-size:10px;padding:2px 8px}
   #ai-setting-pill,#debug-dashboard{display:none!important}
+  #minimap-wrap{width:92px;height:92px;padding:5px;top:calc(32px + var(--safe-top));right:calc(8px + var(--safe-right))}
+  #minimap{width:82px;height:82px;border-radius:10px}
   #notif-area{top:calc(62px + var(--safe-top))}
   /* 대화창, 낚시 */
   #dialogue{bottom:calc(70px + var(--safe-bottom));max-height:42vh;overflow-y:auto}
@@ -269,6 +299,7 @@ button{touch-action:manipulation}
     <div class="hud-pill" id="miles-pill">🦋 <span id="miles-val">0</span> 마일</div>
   </div>
   <div id="season-banner"><span id="season-icon">🌸</span><span id="season-name">봄</span></div>
+  <div id="minimap-wrap"><canvas id="minimap" width="118" height="118" aria-label="섬 미니맵"></canvas></div>
   
   <!-- AI 백엔드 연동 세팅 -->
   <div id="ai-setting-pill" style="position:absolute;top:calc(92px + var(--safe-top));right:calc(14px + var(--safe-right));background:rgba(255,255,255,0.92);border-radius:12px;padding:6px 10px;font-size:11px;font-weight:700;color:#3b3028;display:flex;flex-direction:column;gap:4px;box-shadow:0 2px 8px rgba(0,0,0,0.1);pointer-events:all;z-index:10">
@@ -458,10 +489,10 @@ button{touch-action:manipulation}
         <div id="mp-code-display">연결 초기화 중...</div>
         <button class="mp-btn" id="mp-copy-btn" onclick="copyIslandCode()">📋 코드 복사하기</button>
       </div>
-      <div class="mp-section">
+      <div class="mp-section" id="mp-server-section">
         <h3>멀티플레이 서버</h3>
         <input id="mp-server-input" type="text" placeholder="자동 서버 사용 중" autocomplete="off" autocorrect="off" spellcheck="false" style="width:100%;padding:9px 12px;border-radius:10px;border:2px solid rgba(0,0,0,.1);font-size:12px;margin-bottom:7px;font-family:monospace;outline:none">
-        <button class="mp-btn" id="mp-open-server-btn" onclick="openMultiplayerRoom()">서버 방 열기</button>
+        <button class="mp-btn" id="mp-open-server-btn" onclick="openMultiplayerRoom()">내 섬 방 다시 열기</button>
       </div>
       <div class="mp-section">
         <h3>✈️ 친구 섬 방문</h3>
@@ -483,6 +514,9 @@ button{touch-action:manipulation}
   </div>
 </div>
 
-<script type="module" src="js/main.js?v=2.4"></script>
+<script type="module">
+const buildId = window.POKO_BUILD_ID || Date.now().toString(36);
+import(`./js/main.js?v=${encodeURIComponent(buildId)}`);
+</script>
 </body>
 </html>

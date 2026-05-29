@@ -1,14 +1,16 @@
 // ═══════════════════════════════════════════════════════════════
 // ui.js — HUD/패널/대화/상점/박물관/마을센터/인벤토리/알림/시간/파티클
 // ═══════════════════════════════════════════════════════════════
-import { G } from './game.js';
-import { T, CS, ITEMS, VILLAGERS, FISH_POOL, BUG_POOL, FOSSIL_POOL, MILE_ACHIEVEMENTS, SHOP_CATALOG } from './config.js';
-import { playSound } from './audio.js';
-import { saveState, addItem, addMiles, checkMilestone } from './state.js';
-import { refreshTile } from './world.js';
-import { mesh, disposeMesh } from './renderer.js';
-import { npcPlayerInteract } from './npc.js';
-import { ApiClient, NPC_PROFILES } from './api.js';
+import { G } from './game.js?v=20260529-visual-v21';
+import { T, WW, WH, CS, ITEMS, VILLAGERS, FISH_POOL, BUG_POOL, FOSSIL_POOL, MILE_ACHIEVEMENTS, SHOP_CATALOG } from './config.js?v=20260529-visual-v21';
+import { playSound } from './audio.js?v=20260529-visual-v21';
+import { saveState, addItem, addMiles, checkMilestone } from './state.js?v=20260529-visual-v21';
+import { refreshTile } from './world.js?v=20260529-visual-v21';
+import { mesh, disposeMesh } from './renderer.js?v=20260529-visual-v21';
+import { npcPlayerInteract } from './npc.js?v=20260529-visual-v21';
+import { ApiClient, NPC_PROFILES } from './api.js?v=20260529-visual-v21';
+
+const DEV_AI_PANEL = new URLSearchParams(window.location.search).has('devAI');
 
 // ─── 도구 선택 ───────────────────────────────────────────────
 export function selectTool(t){
@@ -68,7 +70,7 @@ export function talkTo(vi){
 
   // 디버그 대시보드 켜기
   const db = document.getElementById('debug-dashboard');
-  if(db) db.style.display = 'block';
+  if(db && DEV_AI_PANEL) db.style.display = 'block';
 
   // 디버그 대시보드 이름, 설명 초기화
   const nameEl = document.getElementById('debug-npc-name');
@@ -296,6 +298,11 @@ function initAiUiBindings() {
   const toggleBtn = document.getElementById('ai-toggle-btn');
   const connBadge = document.getElementById('ai-conn-badge');
   const urlInput = document.getElementById('ai-url-input');
+
+  const aiPanel = document.getElementById('ai-setting-pill');
+  if(aiPanel) aiPanel.style.display = DEV_AI_PANEL ? 'flex' : 'none';
+  const debugPanel = document.getElementById('debug-dashboard');
+  if(debugPanel && !DEV_AI_PANEL) debugPanel.style.display = 'none';
 
   if (toggleBtn && connBadge && urlInput) {
     ApiClient.isLocalMode = true;
@@ -543,6 +550,12 @@ export function showItemMenu(id){
       closeDialogue();
     }});
   }
+  if(id==='seed_tree'){
+    choices.unshift({text:'심기', action:()=>{
+      if(typeof window.plantTreeSeedFromInventory === 'function') window.plantTreeSeedFromInventory();
+      closeDialogue();
+    }});
+  }
   showDialogue(item.name, `${item.emoji} ${item.name} x${gs.inventory[id]||0}`, choices);
 }
 
@@ -559,6 +572,9 @@ export function togglePanel(id){
     if(id==='museum') renderMuseum();
     if(id==='nook') renderNookHQ();
     if(id==='shop') shopTab('buy');
+    if(id==='mp' && typeof window.ensureMultiplayerRoomOpen === 'function'){
+      setTimeout(()=>window.ensureMultiplayerRoomOpen(), 120);
+    }
   }
 }
 export function closeAllPanels(){
@@ -709,4 +725,56 @@ export function updateUI(){
     </div>`;
   }).join('');
   if(!items.length) bar.innerHTML='<div style="color:#bbb;font-size:12px;padding:4px 8px">주머니 비어있음</div>';
+}
+
+// ─── 미니맵 ──────────────────────────────────────────────────
+export function updateMinimap(){
+  const canvas=document.getElementById('minimap');
+  if(!canvas || !G.world) return;
+  if(G.tick % 8 !== 0) return;
+  const rect=canvas.getBoundingClientRect();
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  const w=Math.max(64,Math.round(rect.width*dpr));
+  const h=Math.max(64,Math.round(rect.height*dpr));
+  if(canvas.width!==w) canvas.width=w;
+  if(canvas.height!==h) canvas.height=h;
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,w,h);
+  const sx=w/WW, sy=h/WH;
+  const colors={
+    [T.OCEAN]:'#55afd8',[T.BEACH]:'#e4cf8e',[T.GRASS]:'#75c85b',
+    [T.CLIFF]:'#5baa48',[T.RIVER]:'#58b8dc',[T.WATERFALL]:'#74c8e8',
+    [T.PATH]:'#d5bc82',[T.BRIDGE]:'#b98556',[T.FLOWER]:'#f3a2c6',
+    [T.TREE]:'#419846',[T.ROCK]:'#a8aeb6',[T.DIG_SPOT]:'#8f7046',
+    [T.SHOP]:'#f2cf7c',[T.MUSEUM]:'#d8c5b0',[T.NOOK_HQ]:'#ffba74',
+    [T.PLAYER_HOUSE]:'#ef92a7',[T.VILLAGER_HOUSE]:'#b99bea',
+  };
+  for(let y=0;y<WH;y++){
+    for(let x=0;x<WW;x++){
+      const t=G.world[y*WW+x];
+      ctx.fillStyle=colors[t]||'#7bc866';
+      ctx.fillRect(Math.floor(x*sx),Math.floor(y*sy),Math.ceil(sx)+0.5,Math.ceil(sy)+0.5);
+    }
+  }
+  ctx.strokeStyle='rgba(255,255,255,.75)';
+  ctx.lineWidth=Math.max(1,1.4*dpr);
+  ctx.strokeRect(0.5,0.5,w-1,h-1);
+  const drawDot=(wx,wz,color,size=3)=>{
+    const x=(wx/CS)*sx, y=(wz/CS)*sy;
+    ctx.beginPath();
+    ctx.fillStyle=color;
+    ctx.arc(x,y,size*dpr,0,Math.PI*2);
+    ctx.fill();
+    ctx.lineWidth=Math.max(1,0.9*dpr);
+    ctx.strokeStyle='rgba(255,255,255,.9)';
+    ctx.stroke();
+  };
+  VILLAGERS.forEach(v=>{
+    const st=G.npcState?.[v.id];
+    drawDot(st?.wx ?? v.pos[0]*CS, st?.wz ?? v.pos[1]*CS, '#fff2a8', 2.4);
+  });
+  G.MP?.remotePlayers?.forEach(r=>{
+    if(r?.mesh?.visible) drawDot(r.mesh.position.x, r.mesh.position.z, '#58a8ff', 2.8);
+  });
+  drawDot(G.playerPos.x,G.playerPos.z,'#ff5d72',3.5);
 }

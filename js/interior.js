@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════════════════════
 // interior.js — 건물 실내 시스템 (3D 방)
 // ═══════════════════════════════════════════════════════════════
-import { G } from './game.js';
-import { T, CS, VILLAGERS } from './config.js';
-import { mat, mesh, disposeMesh } from './renderer.js';
-import { getRoundedBoxGeometry } from './world.js';
-import { playSound } from './audio.js';
-import { updateTimeSystem } from './ui.js';
+import { G } from './game.js?v=20260529-visual-v21';
+import { T, CS, VILLAGERS } from './config.js?v=20260529-visual-v21';
+import { mat, mesh, disposeMesh } from './renderer.js?v=20260529-visual-v21';
+import { getRoundedBoxGeometry } from './world.js?v=20260529-visual-v21';
+import { playSound } from './audio.js?v=20260529-visual-v21';
+import { updateTimeSystem } from './ui.js?v=20260529-visual-v21';
 
 // 실내 방 중심 좌표 (월드 공간 멀리 떨어진 고정 위치)
 const CX = 500, CZ = 500;

@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 // renderer.js — Three.js 초기화 (렌더러, 씬, 카메라, 조명)
 // ═══════════════════════════════════════════════════════════════
-import { G } from './game.js';
+import { G } from './game.js?v=20260529-visual-v21';
 
 const root = document.documentElement;
 const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
@@ -58,9 +58,9 @@ if (renderer.outputColorSpace !== undefined) {
 
 // ─── 씬 & 카메라 ─────────────────────────────────────────────
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(36, initialViewport.w/initialViewport.h, 0.5, 400);
-scene.background = new THREE.Color(0xa7ddf2);
-scene.fog = new THREE.Fog(0xa7ddf2, 42, 96);
+const camera = new THREE.PerspectiveCamera(35, initialViewport.w/initialViewport.h, 0.5, 400);
+scene.background = new THREE.Color(0xb7e6f4);
+scene.fog = new THREE.Fog(0xb7e6f4, 46, 94);
 
 // ─── exteriorRoot 그룹 (실외 오브젝트 토글용) ───────────────
 const exteriorRoot = new THREE.Group();
@@ -68,13 +68,14 @@ scene.add(exteriorRoot);
 
 // ─── 조명 ────────────────────────────────────────────────────
 // 따뜻하고 자연스러운 조명 조합 (Ambient 살구빛 + Hemisphere 하늘빛/지면 반사광)
-const ambLight = new THREE.AmbientLight(0xffead6, 0.26);
+const ambLight = new THREE.AmbientLight(0xffead6, 0.22);
 scene.add(ambLight);
-const hemiLight = new THREE.HemisphereLight(0xc8f1ff, 0xcaa36b, 0.86);
+const hemiLight = new THREE.HemisphereLight(0xd7f6ff, 0xcfa66f, 0.92);
 scene.add(hemiLight);
-const sunLight = new THREE.DirectionalLight(0xfff1cf, 1.42);
+const sunLight = new THREE.DirectionalLight(0xfff0c8, 1.55);
 sunLight.castShadow = true;
-sunLight.shadow.mapSize.set(2048,2048);
+const shadowSize = isTouchDevice ? 2048 : 4096;
+sunLight.shadow.mapSize.set(shadowSize,shadowSize);
 sunLight.shadow.camera.left=-18; sunLight.shadow.camera.right=18;
 sunLight.shadow.camera.top=18;   sunLight.shadow.camera.bottom=-18;
 sunLight.shadow.camera.near=1;
@@ -82,6 +83,12 @@ sunLight.shadow.camera.far=120;
 sunLight.shadow.bias=-0.00035;
 sunLight.shadow.normalBias=0.035;
 scene.add(sunLight); scene.add(sunLight.target);
+const fillLight = new THREE.DirectionalLight(0xffd7a8, 0.22);
+fillLight.position.set(-18,18,20);
+scene.add(fillLight); scene.add(fillLight.target);
+const rimLight = new THREE.DirectionalLight(0xd4f7ff, 0.32);
+rimLight.position.set(-24,22,-18);
+scene.add(rimLight); scene.add(rimLight.target);
 const moonLight = new THREE.DirectionalLight(0x8090c0, 0.0);
 moonLight.position.set(-30,50,-30); scene.add(moonLight);
 
@@ -93,6 +100,8 @@ G.exteriorRoot = exteriorRoot;
 G.ambLight = ambLight;
 G.hemiLight = hemiLight;
 G.sunLight = sunLight;
+G.fillLight = fillLight;
+G.rimLight = rimLight;
 G.moonLight = moonLight;
 
 // ─── 창 크기 변경 ────────────────────────────────────────────

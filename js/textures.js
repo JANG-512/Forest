@@ -285,6 +285,7 @@ export function initTextures() {
       float n1 = noise(waterUv * 1.4 + vec2(time * 0.16, time * 0.10));
       float n2 = noise(waterUv * 2.6 - vec2(time * 0.10, -time * 0.14));
       float wavePattern = (n1 + n2) * 0.5;
+      normal = normalize(normal + vec3((n1 - 0.5) * 0.18, 0.0, (n2 - 0.5) * 0.18));
       
       // 프레넬 효과 계산 (가장자리에 비치는 은은한 하늘빛 반사)
       float fresnel = pow(1.0 - max(dot(normal, viewDir), 0.0), 2.25);
@@ -304,7 +305,7 @@ export function initTextures() {
       vec3 specular = sunColor * spec * 0.48;
       
       vec3 finalColor = colorWithWave + specular;
-      gl_FragColor = vec4(finalColor, 0.94);
+      gl_FragColor = vec4(finalColor, 0.90);
     }
   `;
 
@@ -320,7 +321,7 @@ export function initTextures() {
     vertexShader: waterVertexShader,
     fragmentShader: waterFragmentShader,
     transparent: true,
-    depthWrite: true,
+    depthWrite: false,
     side: THREE.DoubleSide
   });
 }

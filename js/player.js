@@ -1,16 +1,19 @@
 // ═══════════════════════════════════════════════════════════════
 // player.js — 입력/이동/카메라/도구/상호작용
 // ═══════════════════════════════════════════════════════════════
-import { G } from './game.js';
-import { T, CS, CAM_EL, CAM_DST, WW, WH, WALKABLE, INTERACTABLE, VILLAGERS, FISH_POOL, BUG_POOL, ITEMS } from './config.js';
-import { getTile, tileH, setTile, refreshTile } from './world.js';
-import { animateLimbs, buildPlayer } from './character.js';
-import { playSound, playBGM } from './audio.js';
-import { enterBuilding, exitBuilding, INTERIOR } from './interior.js';
-import { addItem, addMiles, checkMilestone, saveState } from './state.js';
-import { notify, updateUI, spawnParticles, talkTo, openShop, openMuseum, openNookHQ, openHouseMenu, selectTool } from './ui.js';
-import { mat, mesh, disposeMesh } from './renderer.js';
-import { isBuildingDoorSide, moveWithWorldCollisions, nudgeOutOfBuilding, isWorldPointWalkable } from './collision.js';
+import { G } from './game.js?v=20260529-visual-v21';
+import { T, CS, CAM_EL, CAM_DST, WW, WH, WALKABLE, INTERACTABLE, VILLAGERS, FISH_POOL, BUG_POOL, ITEMS } from './config.js?v=20260529-visual-v21';
+import { getTile, tileH, setTile, refreshTile } from './world.js?v=20260529-visual-v21';
+import { animateLimbs, buildPlayer } from './character.js?v=20260529-visual-v21';
+import { playSound, playBGM } from './audio.js?v=20260529-visual-v21';
+import { enterBuilding, exitBuilding, INTERIOR } from './interior.js?v=20260529-visual-v21';
+import { addItem, addMiles, checkMilestone, saveState } from './state.js?v=20260529-visual-v21';
+import { notify, updateUI, spawnParticles, talkTo, openShop, openMuseum, openNookHQ, openHouseMenu, selectTool } from './ui.js?v=20260529-visual-v21';
+import { mat, mesh, disposeMesh } from './renderer.js?v=20260529-visual-v21';
+import { isBuildingDoorSide, moveWithWorldCollisions, nudgeOutOfBuilding, isWorldPointWalkable } from './collision.js?v=20260529-visual-v21';
+
+const TREE_FALL_CHOPS = 3;
+const TREE_FALL_WOOD = 5;
 
 // ─── 키보드 입력 ─────────────────────────────────────────────
 export function initControls(){
@@ -249,36 +252,121 @@ export function updateCamera() {
   G.sunLight.position.set(G.camTargetX+20,40,G.camTargetZ+15);
   G.sunLight.target.position.set(G.camTargetX,0,G.camTargetZ);
   G.sunLight.target.updateMatrixWorld();
+  if(G.fillLight){
+    G.fillLight.position.set(G.camTargetX-18,18,G.camTargetZ+20);
+    G.fillLight.target.position.set(G.camTargetX,0.8,G.camTargetZ);
+    G.fillLight.target.updateMatrixWorld();
+  }
+  if(G.rimLight){
+    G.rimLight.position.set(G.camTargetX-24,22,G.camTargetZ-18);
+    G.rimLight.target.position.set(G.camTargetX,0.9,G.camTargetZ);
+    G.rimLight.target.updateMatrixWorld();
+  }
 }
 
 // ─── 낚시 시스템 ─────────────────────────────────────────────
+function findFishingWaterTile(ft){
+  const candidates=[ft,{x:ft.x+1,y:ft.y},{x:ft.x-1,y:ft.y},{x:ft.x,y:ft.y+1},{x:ft.x,y:ft.y-1}];
+  return candidates.find(p=>getTile(p.x,p.y)===T.RIVER||getTile(p.x,p.y)===T.OCEAN) || null;
+}
+
+function clearFishingRig(){
+  const rig=G.fishingRig;
+  if(!rig) return;
+  G.scene.remove(rig.group);
+  rig.group.traverse(c=>{ if(c.isMesh||c.isLine){ c.geometry?.dispose(); c.material?.dispose(); } });
+  G.fishingRig=null;
+}
+
+function updateFishingLine(){
+  const rig=G.fishingRig;
+  if(!rig || !rig.line || !rig.bobber) return;
+  const startY=tileH(Math.round(G.playerPos.x/CS),Math.round(G.playerPos.z/CS))+1.18;
+  rig.line.geometry.setFromPoints([
+    new THREE.Vector3(G.playerPos.x,startY,G.playerPos.z),
+    new THREE.Vector3(rig.bobber.position.x,rig.bobber.position.y,rig.bobber.position.z),
+  ]);
+  rig.line.geometry.attributes.position.needsUpdate=true;
+}
+
+function createFishingRig(waterTile){
+  clearFishingRig();
+  const group=new THREE.Group();
+  const waterY=tileH(waterTile.x,waterTile.y)+0.1;
+  const target={x:waterTile.x*CS, y:waterY, z:waterTile.y*CS};
+  const bobber=new THREE.Group();
+  const top=mesh(new THREE.SphereGeometry(0.08,10,8),0xee3344,false);
+  top.scale.y=0.72; top.position.y=0.035; bobber.add(top);
+  const bottom=mesh(new THREE.SphereGeometry(0.074,10,8),0xffffff,false);
+  bottom.scale.y=0.56; bottom.position.y=-0.035; bobber.add(bottom);
+  bobber.position.set(G.playerPos.x, waterY+0.8, G.playerPos.z);
+  group.add(bobber);
+  const lineMat=new THREE.LineBasicMaterial({color:0x4c3d2f,transparent:true,opacity:0.75});
+  const line=new THREE.Line(new THREE.BufferGeometry(), lineMat);
+  group.add(line);
+  G.scene.add(group);
+  G.fishingRig={group,bobber,line,target,phase:'cast',start:performance.now(),reel:0};
+  updateFishingLine();
+}
+
+function updateFishingRig(dt){
+  const rig=G.fishingRig;
+  if(!rig) return;
+  const now=performance.now();
+  if(rig.phase==='cast'){
+    const p=Math.min(1,(now-rig.start)/520);
+    const ease=1-Math.pow(1-p,3);
+    rig.bobber.position.x=G.playerPos.x+(rig.target.x-G.playerPos.x)*ease;
+    rig.bobber.position.z=G.playerPos.z+(rig.target.z-G.playerPos.z)*ease;
+    rig.bobber.position.y=rig.target.y+Math.sin(p*Math.PI)*0.85;
+    if(p>=1) rig.phase='float';
+  } else if(rig.phase==='bite'){
+    rig.bobber.position.y=rig.target.y+Math.sin(now*0.035)*0.11;
+    rig.bobber.rotation.z=Math.sin(now*0.04)*0.25;
+  } else if(rig.phase==='catch'){
+    rig.reel=Math.min(1,rig.reel+dt*0.018);
+    rig.bobber.position.x+=(G.playerPos.x-rig.bobber.position.x)*0.12;
+    rig.bobber.position.z+=(G.playerPos.z-rig.bobber.position.z)*0.12;
+    rig.bobber.position.y=rig.target.y+0.15+rig.reel*0.72+Math.sin(now*0.04)*0.04;
+  } else {
+    rig.bobber.position.y=rig.target.y+Math.sin(now*0.006)*0.025;
+  }
+  updateFishingLine();
+}
+
 function tryFish() {
   const ft=facingTile();
-  const adj=[ft,{x:ft.x+1,y:ft.y},{x:ft.x-1,y:ft.y},{x:ft.x,y:ft.y+1},{x:ft.x,y:ft.y-1}];
-  const nearWater=adj.some(p=>getTile(p.x,p.y)===T.RIVER||getTile(p.x,p.y)===T.OCEAN);
-  if(!nearWater){ notify('🎣 물가 근처에 서야 해요!'); return; }
+  const waterTile=findFishingWaterTile(ft);
+  if(!waterTile){ notify('🎣 물가 근처에 서야 해요!'); return; }
   if(G.fishingState===null){
     G.fishingState='cast';
     G.fishingTimer=80+Math.random()*120;
+    G.toolSwingTimer=16;
+    createFishingRig(waterTile);
     document.getElementById('fishing-ui').style.display='block';
-    document.getElementById('fish-hint').textContent='🎣 찌를 던졌어요! 기다리세요...';
+    document.getElementById('fish-hint').textContent='🎣 찌를 던졌어요. 물결을 보며 기다리세요...';
     document.getElementById('catch-bar').style.display='none';
     playSound('cast');
   }
 }
 export function updateFishing(dt){
   if(!G.fishingState) return;
+  updateFishingRig(dt);
   G.fishingTimer-=dt;
   if(G.fishingState==='cast'&&G.fishingTimer<=0){
     G.fishingState='bite';
     G.fishingTimer=40;
+    if(G.fishingRig) G.fishingRig.phase='bite';
     document.getElementById('fish-hint').textContent='🐟 찌가 움직여요! E를 누르세요!';
     playSound('bite');
+    if(G.fishingRig?.bobber){
+      spawnParticles(G.fishingRig.bobber.position.x,G.fishingRig.bobber.position.y+0.05,G.fishingRig.bobber.position.z,'💧',5);
+    }
     notify('🐟 찌가 움직인다!');
   } else if(G.fishingState==='bite'){
-    G.fishingTimer-=dt;
     if(G.fishingTimer<=0){
       G.fishingState=null;
+      clearFishingRig();
       document.getElementById('fishing-ui').style.display='none';
       notify('😢 놓쳤어요...');
       playSound('miss');
@@ -295,11 +383,14 @@ function reelIn(){
   if(G.fishingState==='bite'){
     G.fishingState='catch';
     G.catchProgress=0;
+    if(G.fishingRig) G.fishingRig.phase='catch';
+    G.toolSwingTimer=16;
     document.getElementById('catch-bar').style.display='block';
     document.getElementById('fish-hint').textContent='🎣 당겨요! E를 계속 누르세요!';
     playSound('reel');
   } else if(G.fishingState==='catch'){
     G.catchProgress+=8;
+    G.toolSwingTimer=10;
   }
 }
 function landFish(){
@@ -320,6 +411,10 @@ function landFish(){
   addItem(fish,1);
   gs.total_fish++;
   notify(`🎣 ${item.emoji} ${item.name}을(를) 잡았어요!`);
+  if(G.fishingRig?.bobber){
+    spawnParticles(G.fishingRig.bobber.position.x, G.fishingRig.bobber.position.y+0.15, G.fishingRig.bobber.position.z, '💧', 8);
+  }
+  clearFishingRig();
   spawnParticles(G.playerPos.x, tileH(Math.round(G.playerPos.x/CS),Math.round(G.playerPos.z/CS))+1.5, G.playerPos.z, '💧', 5);
   checkMilestone('first_catch');
   if(Object.keys(gs.museum.fish).length>=5) checkMilestone('donate_fish');
@@ -387,25 +482,103 @@ function tryShovel(){
 }
 
 // ─── 나무 도끼 ────────────────────────────────────────────────
+function randomFruit(){
+  const fruits=['apple','pear','orange','cherry'];
+  return fruits[Math.floor(Math.random()*fruits.length)];
+}
+
+function findRandomTreeSpawnTile(originX, originY){
+  for(let i=0;i<180;i++){
+    const r=i<40 ? 5+Math.floor(Math.random()*8) : 8+Math.floor(Math.random()*22);
+    const a=Math.random()*Math.PI*2;
+    const tx=Math.max(2,Math.min(WW-3,Math.round(originX+Math.cos(a)*r)));
+    const ty=Math.max(2,Math.min(WH-3,Math.round(originY+Math.sin(a)*r)));
+    if(getTile(tx,ty)!==T.GRASS && getTile(tx,ty)!==T.CLIFF) continue;
+    let clear=true;
+    for(let oy=-1;oy<=1;oy++){
+      for(let ox=-1;ox<=1;ox++){
+        const t=getTile(tx+ox,ty+oy);
+        if([T.TREE,T.ROCK,T.SHOP,T.MUSEUM,T.NOOK_HQ,T.PLAYER_HOUSE,T.VILLAGER_HOUSE,T.RIVER,T.OCEAN].includes(t)){
+          clear=false;
+        }
+      }
+    }
+    if(clear) return {x:tx,y:ty};
+  }
+  return null;
+}
+
+function spawnReplacementTree(originX, originY){
+  const spot=findRandomTreeSpawnTile(originX, originY);
+  if(!spot) return;
+  const key=`${spot.x},${spot.y}`;
+  setTile(spot.x,spot.y,T.TREE);
+  G.gs.world_trees[key]={fruit:randomFruit(), grown:0, lastShake:0, shakeCount:0, chopCount:0, woodHarvested:0};
+  refreshTile(spot.x,spot.y);
+  notify('🌱 섬 어딘가에 새 묘목이 자라기 시작했어요.');
+}
+
+function animateTreeFall(ft, done){
+  const key=`${ft.x},${ft.y}`;
+  const meshGroup=G.tileMeshes.get(key);
+  if(!meshGroup){ done(); return; }
+  let frame=0;
+  const dir=G.playerPos.x < ft.x*CS ? -1 : 1;
+  function anim(){
+    frame++;
+    const p=Math.min(1,frame/34);
+    const ease=1-Math.pow(1-p,2);
+    meshGroup.rotation.z=dir*ease*1.25;
+    meshGroup.position.y-=0.006;
+    if(p<1) requestAnimationFrame(anim);
+    else setTimeout(done,180);
+  }
+  anim();
+}
+
+function fellTree(ft, key){
+  notify('🌳 나무가 흔들리다 쓰러졌어요!');
+  spawnParticles(ft.x*CS,tileH(ft.x,ft.y)+1.2,ft.y*CS,'🍃',12);
+  animateTreeFall(ft, ()=>{
+    delete G.gs.world_trees[key];
+    setTile(ft.x,ft.y,T.GRASS);
+    refreshTile(ft.x,ft.y);
+    spawnReplacementTree(ft.x,ft.y);
+    saveState();
+    updateUI();
+  });
+}
+
 function tryAxe(){
   const gs=G.gs;
   const ft=facingTile();
   if(ft.t===T.TREE){
     const key=`${ft.x},${ft.y}`;
-    addItem('wood',1+Math.floor(Math.random()*2));
-    if(Math.random()<0.3) addItem('iron',1);
+    if(!gs.world_trees[key]) gs.world_trees[key]={fruit:randomFruit(), grown:2, lastShake:0, shakeCount:0};
     const td=gs.world_trees[key];
+    td.chopCount=(td.chopCount||0)+1;
+    const woodYield=1+Math.floor(Math.random()*2);
+    td.woodHarvested=(td.woodHarvested||0)+woodYield;
+    addItem('wood',woodYield);
+    if(Math.random()<0.3) addItem('iron',1);
+    const meshGroup=G.tileMeshes.get(key);
+    if(meshGroup) shakeTreeMesh(meshGroup);
+    spawnParticles(ft.x*CS,tileH(ft.x,ft.y)+0.75,ft.y*CS,'🪵',5);
     const now=Date.now();
     if(td&&(td.lastShake===0||(now-td.lastShake)>86400000)){
       td.lastShake=now;
       const cnt=1+Math.floor(Math.random()*2);
       addItem(td.fruit,cnt);
       notify(`🪓 ${ITEMS[td.fruit].emoji} 열매 ${cnt}개를 얻었어요!`);
-      refreshTile(ft.x,ft.y);
     } else {
-      notify('🪵 나무에서 목재를 얻었어요!');
+      notify(`🪵 나무에 자국이 남고 목재 ${woodYield}개를 얻었어요!`);
     }
-    saveState(); updateUI();
+    if(td.chopCount>=TREE_FALL_CHOPS || td.woodHarvested>=TREE_FALL_WOOD){
+      fellTree(ft,key);
+    } else {
+      setTimeout(()=>refreshTile(ft.x,ft.y),150);
+      saveState(); updateUI();
+    }
     playSound('chop');
   } else if(ft.t===T.ROCK){
     addItem('stone',1+Math.floor(Math.random()*2));
@@ -416,6 +589,26 @@ function tryAxe(){
   } else {
     notify('여기서는 도끼를 사용할 수 없어요.');
   }
+}
+
+export function plantTreeSeedFromInventory(){
+  const gs=G.gs;
+  if(!gs.inventory.seed_tree){ notify('🌱 심을 묘목이 없어요.'); return false; }
+  const ft=facingTile();
+  if(getTile(ft.x,ft.y)!==T.GRASS && getTile(ft.x,ft.y)!==T.CLIFF){
+    notify('🌱 잔디나 언덕 위에 심어야 해요.');
+    return false;
+  }
+  const key=`${ft.x},${ft.y}`;
+  setTile(ft.x,ft.y,T.TREE);
+  gs.world_trees[key]={fruit:randomFruit(), grown:0, lastShake:0, shakeCount:0, chopCount:0, woodHarvested:0};
+  gs.inventory.seed_tree--;
+  if(gs.inventory.seed_tree<=0) delete gs.inventory.seed_tree;
+  refreshTile(ft.x,ft.y);
+  saveState(); updateUI();
+  notify('🌱 묘목을 심었어요. 돌봐주면 자랄 거예요!');
+  playSound('dig');
+  return true;
 }
 
 // ─── 물뿌리개 ─────────────────────────────────────────────────

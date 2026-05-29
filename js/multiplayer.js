@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════════════════════
 // multiplayer.js — PeerJS WebRTC 멀티플레이
 // ═══════════════════════════════════════════════════════════════
-import { G } from './game.js';
-import { CS, DEFAULT_MULTIPLAYER_SERVER } from './config.js';
-import { buildCharacter, animateLimbs } from './character.js';
-import { disposeMesh } from './renderer.js';
-import { tileH, generateWorld, buildGround } from './world.js';
-import { notify } from './ui.js';
+import { G } from './game.js?v=20260529-visual-v21';
+import { CS, DEFAULT_MULTIPLAYER_SERVER } from './config.js?v=20260529-visual-v21';
+import { buildCharacter, animateLimbs } from './character.js?v=20260529-visual-v21';
+import { disposeMesh } from './renderer.js?v=20260529-visual-v21';
+import { tileH, generateWorld, buildGround } from './world.js?v=20260529-visual-v21';
+import { notify } from './ui.js?v=20260529-visual-v21';
 
 const PROTOCOL_VERSION = 2;
 const CHAT_LIMIT = 120;
@@ -216,7 +216,17 @@ export function openMultiplayerRoom(){
   connectServerRoom(G.MP.roomId, true);
 }
 
-function connectServerRoom(roomId, asHost){
+export function ensureMultiplayerRoomOpen(){
+  ensureMPState();
+  const serverUrl=getServerUrl();
+  if(!serverUrl || G.MP.visitingMode) return;
+  if(isServerOpen() && G.MP.isHost) return;
+  const el=document.getElementById('mp-code-display');
+  if(el) el.textContent=G.MP.roomId;
+  connectServerRoom(G.MP.roomId, true, {showChat:false, quiet:true});
+}
+
+function connectServerRoom(roomId, asHost, opts={}){
   ensureMPState();
   const serverUrl=getServerUrl();
   if(!serverUrl){ notify('멀티플레이 서버 URL을 입력해 주세요.'); return; }
@@ -225,9 +235,9 @@ function connectServerRoom(roomId, asHost){
   G.MP.isHost=!!asHost;
   G.MP.pendingJoinId=null;
   G.MP.netMode='websocket';
-  toggleMultiplayerChat(true);
+  if(opts.showChat!==false) toggleMultiplayerChat(true);
   mpSetStatus('멀티플레이 서버에 연결 중...');
-  appendChatLog('system', asHost ? '서버 방을 여는 중...' : '서버 방에 입장하는 중...');
+  if(!opts.quiet) appendChatLog('system', asHost ? '서버 방을 여는 중...' : '서버 방에 입장하는 중...');
   const ws=new WebSocket(normalizeWsUrl(serverUrl, roomId));
   G.MP.ws=ws;
   ws.onopen=()=>{
@@ -242,7 +252,7 @@ function connectServerRoom(roomId, asHost){
       sendServer({type:'world_request', ...playerPayload({room:roomId})});
       mpSetStatus(`서버 방 입장 중: ${roomId} <span class="mp-badge">SERVER</span>`);
     }
-    appendChatLog('system','서버 멀티 채팅방에 연결되었습니다.');
+    if(!opts.quiet) appendChatLog('system','서버 멀티 채팅방에 연결되었습니다.');
     updateRosterUI();
   };
   ws.onmessage=ev=>{
@@ -439,6 +449,7 @@ function handleMPData(peerId, data){
   } else if(data.type==='chat'){
     const id=data.id || peerId;
     appendChatLog(id===G.MP.myId?'me':'friend', data.msg, displayName(id));
+    if(id!==G.MP.myId) showRemoteChatBubble(id, data.msg);
     if(G.MP.isHost) broadcast({...data, id}, peerId);
   } else if(data.type==='ping'){
     sendTo(G.MP.conns.get(peerId), {type:'pong', t:data.t, id:G.MP.myId, name:G.MP.playerName});
@@ -482,6 +493,7 @@ function handleServerData(packet){
     updateRemoteTarget(peerId, {...packet, id:peerId});
   } else if(packet.type==='chat'){
     appendChatLog('friend', packet.msg, displayName(peerId));
+    showRemoteChatBubble(peerId, packet.msg);
   } else if(packet.type==='hello'){
     rememberProfile(peerId, packet.name, packet.host);
     updateRosterUI();
@@ -562,6 +574,51 @@ function buildRemotePlayer(id, name, limbs){
   tag.position.set(0,2.35,0);
   g.add(tag);
   return g;
+}
+
+function showRemoteChatBubble(id, text){
+  const remote=G.MP.remotePlayers?.get(id);
+  if(remote?.mesh) showChatBubble(remote.mesh, text);
+}
+
+function showChatBubble(target, text){
+  if(!target) return;
+  if(target.userData.chatBubble){
+    target.remove(target.userData.chatBubble);
+    disposeMesh(target.userData.chatBubble);
+    target.userData.chatBubble=null;
+  }
+  const canvas=document.createElement('canvas');
+  canvas.width=384; canvas.height=128;
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='rgba(255,255,255,0.96)';
+  roundRect(ctx,18,18,348,72,24);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(178,90); ctx.lineTo(206,90); ctx.lineTo(192,112); ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle='#3b3028';
+  ctx.font='700 24px system-ui, sans-serif';
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  const clipped=String(text||'').slice(0,34);
+  ctx.fillText(clipped,192,55,316);
+  const tex=new THREE.CanvasTexture(canvas);
+  const mat=new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false});
+  const sprite=new THREE.Sprite(mat);
+  sprite.position.set(0,2.95,0);
+  sprite.scale.set(2.35,0.78,1);
+  target.add(sprite);
+  target.userData.chatBubble=sprite;
+  clearTimeout(target.userData.chatBubbleTimer);
+  target.userData.chatBubbleTimer=setTimeout(()=>{
+    if(target.userData.chatBubble===sprite){
+      target.remove(sprite);
+      disposeMesh(sprite);
+      target.userData.chatBubble=null;
+    }
+  },4200);
 }
 
 function createNameTag(text){
@@ -691,6 +748,7 @@ export function sendChatMessage(msg) {
   else if(G.MP.isHost) broadcast(payload);
   else sendTo(G.MP.conn, payload);
   appendChatLog('me', txt, '나');
+  showChatBubble(G.playerMesh, txt);
 }
 
 function appendChatLog(kind, text, sender='') {
@@ -772,10 +830,20 @@ function initMpChatBindings() {
       if(e.key === 'Enter') {
         sendChatMessage(input.value);
         input.value = '';
+        e.preventDefault();
       }
       if(e.key === 'Escape') toggleMultiplayerChat(false);
     };
   }
+  document.addEventListener('keydown', e=>{
+    if(e.key!=='Enter') return;
+    const active=document.activeElement;
+    const tag=active?.tagName;
+    if(active===input || tag==='INPUT' || tag==='TEXTAREA' || tag==='SELECT') return;
+    if(G.dialogueOpen || G.openPanels?.size) return;
+    e.preventDefault();
+    toggleMultiplayerChat(true);
+  });
   updateChatConnectionUI(hasOpenConnections());
   updateRosterUI();
 }

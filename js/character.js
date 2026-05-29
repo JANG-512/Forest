@@ -1,11 +1,11 @@
 // ══════════════════════════════════════════════════════════
 // character.js — 캐릭터 3D 모델 빌더 (치비 피규어 스타일 업그레이드)
 // ══════════════════════════════════════════════════════════
-import { G } from './game.js';
-import { mat, mesh, disposeMesh } from './renderer.js';
-import { T, INTERACTABLE } from './config.js';
-import { TEXTURES } from './textures.js';
-import { getRoundedBoxGeometry } from './world.js';
+import { G } from './game.js?v=20260529-visual-v21';
+import { mat, mesh, disposeMesh } from './renderer.js?v=20260529-visual-v21';
+import { T, INTERACTABLE } from './config.js?v=20260529-visual-v21';
+import { TEXTURES } from './textures.js?v=20260529-visual-v21';
+import { getRoundedBoxGeometry } from './world.js?v=20260529-visual-v21';
 
 // 어떤 player도 공유할 수 있는 빌더 (tint: 헤어 색상으로 구분)
 export function buildCharacter(skinC, shirtC, pantsC, hairC, shoeC, limbsOut, isNPC=false) {
@@ -52,6 +52,11 @@ export function buildCharacter(skinC, shirtC, pantsC, hairC, shoeC, limbsOut, is
     const shoe = new THREE.Mesh(shoeGeo, mat(shoeC, 0.5));
     shoe.position.set(0.02, -0.28, 0.03); shoe.castShadow = true;
     pivot.add(shoe);
+
+    const sole = new THREE.Mesh(getRoundedBoxGeometry(0.19, 0.022, 0.24, 0.01, 2), mat(0xf4ead8, 0.72));
+    sole.position.set(0.02, -0.33, 0.04);
+    sole.castShadow = true;
+    pivot.add(sole);
     
     visualGroup.add(pivot);
     if(i===0) limbsOut.leftLeg=pivot; else limbsOut.rightLeg=pivot;
@@ -63,6 +68,24 @@ export function buildCharacter(skinC, shirtC, pantsC, hairC, shoeC, limbsOut, is
   body.position.y = 0.66;
   body.castShadow = true; body.receiveShadow = true;
   visualGroup.add(body);
+
+  // 앞면이 한눈에 읽히도록 단추, 밑단, 작은 사첼 스트랩을 더한다.
+  const hem = new THREE.Mesh(getRoundedBoxGeometry(0.44, 0.035, 0.035, 0.008, 2), mat(0xffffff, 0.62));
+  hem.position.set(0, 0.47, 0.19);
+  visualGroup.add(hem);
+
+  const strap = new THREE.Mesh(getRoundedBoxGeometry(0.055, 0.37, 0.035, 0.008, 2), mat(0x2f5f94, 0.64));
+  strap.position.set(-0.08, 0.67, 0.205);
+  strap.rotation.z = -0.55;
+  visualGroup.add(strap);
+
+  [0.59, 0.71].forEach((by, bi) => {
+    const button = mesh(new THREE.SphereGeometry(0.024, 6, 5), bi === 0 ? 0xfff6d8 : 0xdff4ff, false);
+    button.scale.set(1, 1, 0.55);
+    button.position.set(0.04, by, 0.215);
+    button.userData.noOutline = true;
+    visualGroup.add(button);
+  });
 
   // ── 칼라 깃 (Collar) 데코 ──
   const collarGeo = getRoundedBoxGeometry(0.16, 0.04, 0.26, 0.01, 2);
@@ -104,6 +127,13 @@ export function buildCharacter(skinC, shirtC, pantsC, hairC, shoeC, limbsOut, is
     const hairCap = mesh(new THREE.SphereGeometry(0.44,12,10), hairC);
     hairCap.scale.set(1.1,0.6,1.1); hairCap.position.set(0,1.52,0);
     hairCap.castShadow=true; visualGroup.add(hairCap);
+    const shineMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.18, depthWrite: false });
+    const shine = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 6), shineMat);
+    shine.scale.set(1.65, 0.38, 0.42);
+    shine.position.set(-0.14, 1.61, 0.26);
+    shine.rotation.z = -0.18;
+    shine.userData.noOutline = true;
+    visualGroup.add(shine);
     // 앞머리 (뭉실뭉실한 입체 가닥)
     [[-0.24, 1.45, 0.33, 0.15], [0, 1.42, 0.35, 0.16], [0.24, 1.45, 0.33, 0.15],
      [-0.12, 1.47, 0.34, 0.15], [0.12, 1.47, 0.34, 0.15]].forEach(([hx, hy, hz, r], bi)=>{
@@ -175,18 +205,18 @@ export function buildCharacter(skinC, shirtC, pantsC, hairC, shoeC, limbsOut, is
 
   visualGroup.traverse(c => {
     if (c.isMesh) {
-      c.castShadow = false;
+      c.castShadow = !c.userData.isOutline;
       c.receiveShadow = false;
     }
   });
-  g.castShadow = false;
+  g.castShadow = true;
   return g;
 }
 
 function applyCartoonOutline(group) {
   const outlines = [];
   group.traverse(c => {
-    if (c.isMesh && c.geometry && !c.userData.isOutline && !c.userData.isShadow) {
+    if (c.isMesh && c.geometry && !c.userData.isOutline && !c.userData.isShadow && !c.userData.noOutline) {
       const color = c.material.color ? c.material.color.getHex() : 0;
       // 눈자(0xffffff), 볼터치(0xffaaaa/0xff6666), 입/씨방(0xffcc00/0xffee88) 등은 카툰 아웃라인 제외
       if (color === 0xffffff || color === 0xffaaaa || color === 0xff6666 || color === 0xffee88 || color === 0xffcc00) {
